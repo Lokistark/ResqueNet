@@ -128,14 +128,15 @@ app.get('/seed-admin', async (req, res) => {
     const bcrypt = require('bcryptjs');
 
     const existingAdmin = await User.findOne({ email: 'naveen@gmail.com' });
-    if (existingAdmin) {
-      existingAdmin.role = 'admin';
-      await existingAdmin.save();
-      return res.send('User naveen@gmail.com updated to ADMIN');
-    }
-
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('naveen04', salt);
+
+    if (existingAdmin) {
+      existingAdmin.role = 'admin';
+      existingAdmin.password = hashedPassword; // FORCE UPDATE PASSWORD
+      await existingAdmin.save();
+      return res.send('User naveen@gmail.com updated to ADMIN with password: naveen04');
+    }
 
     await User.create({
       name: 'Naveen Admin',
