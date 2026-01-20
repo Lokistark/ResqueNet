@@ -1,0 +1,180 @@
+import { useState } from 'react';
+import { reportIncident } from '../services/api';
+import { saveReportLocally } from '../services/db';
+import { MapPin, AlertTriangle, FileText, User } from 'lucide-react';
+import DOMPurify from 'dompurify';
+
+const IncidentForm = ({ onSuccess, isOnline }) => {
+    // --- STATE MANAGEMENT ---
+    const [formData, setFormData] = useState({
+        title: '',
+        type: 'Fire',
+        location: '',
+        description: ''
+    });
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState('');
+
+    /**
+     * Submission Logic
+     * Handles both Online (Direct API) and Offline (Local IndexedDB) modes.
+     * Implements background sync registration for reliability.
+     */
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setMessage('');
+
+        // Security: Sanitize user input before processing
+        const sanitizedData = {
+            title: DOMPurify.sanitize(formData.title),
+            type: formData.type,
+            location: DOMPurify.sanitize(formData.location),
+            description: DOMPurify.sanitize(formData.description)
+        };
+
+        if (isOnline) {
+            try {
+                await reportIncident(sanitizedData);
+                setMessage('REPORT TRANSMITTED SUCCESSFULLY');
+                setTimeout(onSuccess, 1500);
+            } catch (err) {
+                setMessage('NETWORK TIMEOUT: SAVING LOCALLY...');
+                await saveReportLocally(sanitizedData);
+                registerSync();
+                setTimeout(onSuccess, 1500);
+            }
+        } else {
+            // Offline mode: Store in browser DB until connection returns
+            await saveReportLocally(sanitizedData);
+            setMessage('OFFLINE MODE: REPORT QUEUED FOR SYNC');
+            registerSync();
+            setTimeout(onSuccess, 2000);
+        }
+        setLoading(false);
+    };
+
+    /**
+     * Registers a Background Sync event with the Service Worker.
+     * Ensures reports are sent even if the user closes the tab.
+     */
+    const registerSync = () => {
+        if ('serviceWorker' in navigator && 'SyncManager' in window) {
+            navigator.serviceWorker.ready.then(registration => {
+                return registration.sync.register('sync-reports');
+            }).catch(err => console.log('SYNC REG FAILURE', err));
+        }
+    };
+
+    /**
+     * GPS Acquisition Utility
+     */
+    const getLocation = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                setFormData({
+                    ...formData,
+                    location: `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`
+                });
+            }, (err) => {
+                alert("GPS ACQUISITION FAILED. Please specify location manually.");
+            });
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-8 animate-fade-in">
+            <div className="border-b-[6px] border-emergency-red pb-4 mb-2">
+                <h2 className="text-2xl sm:text-3xl font-black text-gray-900 lowercase tracking-tighter">New Transmission</h2>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1 italic">Authorized Personnel Only</p>
+            </div>
+
+            <div className="space-y-6">
+                <div className="group">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                        <AlertTriangle size={14} className="text-emergency-red" /> Incident Title
+                    </label>
+                    <input
+                        type="text"
+                        required
+                        className="w-full p-4 bg-gray-50 border-2 border-transparent rounded-[1.5rem] focus:bg-white focus:border-emergency-red outline-none transition-all font-bold text-gray-800 placeholder-gray-300 shadow-inner"
+                        value={formData.title}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        placeholder="Nature of Emergency..."
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 block">Priority Type</label>
+                        <select
+                            className="w-full p-4 bg-gray-50 border-2 border-transparent rounded-[1.5rem] focus:bg-white focus:border-emergency-red outline-none font-bold text-gray-800 shadow-inner appearance-none cursor-pointer"
+                            value={formData.type}
+                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                        >
+                            <option value="Fire">Fire Rescue</option>
+                            <option value="Medical">Medical Urgent</option>
+                            <option value="Flood">Water / Flood</option>
+                            <option value="Accident">Vehicle Accident</option>
+                            <option value="Other">Other Emergency</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                            <MapPin size={14} className="text-emergency-red" /> Location Coordinates
+                        </label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                required
+                                className="flex-1 p-4 bg-gray-50 border-2 border-transparent rounded-[1.5rem] focus:bg-white focus:border-emergency-red outline-none font-bold text-gray-800 placeholder-gray-300 shadow-inner"
+                                value={formData.location}
+                                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                placeholder="Detecting or Manually Enter..."
+                            />
+                            <button
+                                type="button"
+                                onClick={getLocation}
+                                className="px-5 bg-emergency-red text-white rounded-[1.5rem] hover:bg-emergency-dark active:scale-95 transition-all font-black text-xs uppercase tracking-widest shadow-lg"
+                                title="Use GPS"
+                            >
+                                GPS
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+                        <FileText size={14} className="text-emergency-red" /> Detailed Situation Analysis
+                    </label>
+                    <textarea
+                        required
+                        rows="5"
+                        className="w-full p-6 bg-gray-50 border-2 border-transparent rounded-[2rem] focus:bg-white focus:border-emergency-red outline-none transition-all font-bold text-gray-800 placeholder-gray-300 shadow-inner resize-none"
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Provide critical details for responders..."
+                    ></textarea>
+                </div>
+            </div>
+
+            {message && (
+                <div className={`p-5 rounded-2xl font-black text-[10px] tracking-[0.2em] text-center uppercase animate-fade-in-up border-2 ${message.includes('Error') || message.includes('OFFLINE') || message.includes('TIMEOUT') ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                    {message}
+                </div>
+            )}
+
+            <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-emergency-red text-white p-6 rounded-[2rem] font-black text-sm shadow-2xl hover:bg-emergency-dark transform hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-50 uppercase tracking-[0.3em] border-b-[8px] border-emergency-dark"
+            >
+                {loading ? 'Transmitting Data...' : 'Broadcast Emergency Report'}
+            </button>
+        </form>
+    );
+};
+
+export default IncidentForm;
