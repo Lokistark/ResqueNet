@@ -80,11 +80,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/incidents', incidentRoutes);
 
 // Health Check for Vercel
+let dbError = null;
+
 app.get('/', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
   res.json({
     status: 'Operational',
     database: dbStatus,
+    dbError: dbError ? dbError.message : null,
     environment: process.env.NODE_ENV
   });
 });
@@ -97,8 +100,14 @@ mongoose.set('bufferCommands', false); // Disable buffering so we get immediate 
 mongoose.connect(process.env.MONGODB_URI, {
   serverSelectionTimeoutMS: 5000,
 })
-  .then(() => console.log('✅ MongoDB ATLAS Connected Successfully'))
-  .catch(err => console.error('❌ MongoDB Connection Error:', err));
+  .then(() => {
+    console.log('✅ MongoDB ATLAS Connected Successfully');
+    dbError = null;
+  })
+  .catch(err => {
+    console.error('❌ MongoDB Connection Error:', err);
+    dbError = err;
+  });
 
 // Database connection middleware
 app.use((req, res, next) => {
