@@ -30,7 +30,9 @@ app.use(helmet());
 // Cross-Origin Resource Sharing configuration
 // Restricts API access to our specific frontend domain
 app.use(cors({
-  origin: '*', // ALLOW EVERYTHING for debugging
+  origin: (origin, callback) => {
+    callback(null, true); // Reflect request origin
+  },
   credentials: true
 }));
 
