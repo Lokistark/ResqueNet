@@ -4,24 +4,14 @@ import { useState, useEffect } from 'react';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import { getMe } from './services/api';
+
 
 function App() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await getMe();
-        setUser(response.data.data.user);
-      } catch (err) {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkAuth();
+    setLoading(false);
 
     // Register Service Worker
     if ('serviceWorker' in navigator) {
