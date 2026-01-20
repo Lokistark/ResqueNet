@@ -97,9 +97,11 @@ app.get('/', (req, res) => {
  */
 // Re-enable buffering so operations wait for connection instead of failing instantly
 mongoose.set('bufferCommands', true);
+mongoose.set('bufferTimeoutMS', 30000); // Wait 30s for connection before failing ops
 
 mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 5000,
+  serverSelectionTimeoutMS: 30000, // Wait 30s for initial connection
+  socketTimeoutMS: 45000,
 })
   .then(() => {
     console.log('✅ MongoDB ATLAS Connected Successfully');
@@ -112,10 +114,10 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 // Database connection middleware
 app.use((req, res, next) => {
-  if (mongoose.connection.readyState !== 1 && !mongoose.connection.readyState === 2) {
+  if (mongoose.connection.readyState !== 1 && mongoose.connection.readyState !== 2) {
     return res.status(503).json({
       status: 'error',
-      message: `Database not ready (Current State: ${mongoose.connection.readyState}). Check Vercel Env Vars for URI typos.`
+      message: `Database connecting... (State: ${mongoose.connection.readyState}). Please retry in 5 seconds.`
     });
   }
   next();
