@@ -79,14 +79,34 @@ app.use('/api/auth', authRoutes);
 app.use('/api/incidents', incidentRoutes);
 
 // Health Check for Vercel
-app.get('/', (req, res) => res.send('ResqueNet API is Operational.'));
+app.get('/', (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
+  res.json({
+    status: 'Operational',
+    database: dbStatus,
+    environment: process.env.NODE_ENV
+  });
+});
 
 /**
  * DATABASE CONNECTIVITY
  */
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI, {
+  serverSelectionTimeoutMS: 5000, // Fail fast if DB is down (5s instead of default 30s)
+})
   .then(() => console.log('✅ MongoDB ATLAS Connected Successfully'))
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
+
+// Database connection middleware - Prevents "Buffering Timeout" errors from hanging the server
+app.use((req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      status: 'error',
+      message: 'Database connection is not established. Please check MongoDB Atlas IP Whitelisting.'
+    });
+  }
+  next();
+});
 
 /**
  * GLOBAL ERROR HANDLER
