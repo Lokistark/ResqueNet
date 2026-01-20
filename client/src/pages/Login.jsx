@@ -85,7 +85,7 @@ const Login = ({ setUser }) => {
                         <Shield className="text-emergency-red" size={56} />
                     </div>
                     <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tighter leading-none">RESQUENET</h1>
-                    <p className="text-gray-400 font-black uppercase text-[10px] tracking-[0.3em] mt-3">Personnel Access Portal</p>
+                    <p className="text-gray-400 font-black uppercase text-[10px] tracking-[0.3em] mt-3">Emergency Response Protocol</p>
                 </div>
 
                 {error && (
@@ -99,7 +99,7 @@ const Login = ({ setUser }) => {
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emergency-red transition-colors" size={20} />
                         <input
                             type="email"
-                            placeholder="Email / Service ID"
+                            placeholder="Email Address"
                             className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-emergency-red outline-none transition-all text-sm font-bold placeholder-gray-300"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -111,7 +111,7 @@ const Login = ({ setUser }) => {
                         <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emergency-red transition-colors" size={20} />
                         <input
                             type="password"
-                            placeholder="Access Token"
+                            placeholder="Password"
                             className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-emergency-red outline-none transition-all text-sm font-bold placeholder-gray-300"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -127,19 +127,19 @@ const Login = ({ setUser }) => {
                 {/* --- EMERGENCY UTILITIES --- */}
                 <div className="mt-10 pt-10 border-t border-gray-100 space-y-6 text-center">
                     <div>
-                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em] mb-4 italic">CRITICAL BYPASS (NO LOGIN REQUIRED)</p>
+                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em] mb-4 italic">In Immediate Danger?</p>
                         <button
                             onClick={handlePublicSOS}
                             disabled={sosLoading}
                             className="w-full bg-gray-900 text-white p-5 rounded-2xl font-black text-xs flex items-center justify-center gap-3 hover:bg-black active:scale-95 transition-all shadow-2xl relative overflow-hidden group"
                         >
                             <AlertCircle size={24} className="text-emergency-red animate-pulse" />
-                            <span className="tracking-widest uppercase">BROADCAST EMERGENCY SOS</span>
+                            <span className="tracking-widest uppercase">BYPASS LOGIN - SEND SOS</span>
                         </button>
                     </div>
 
                     <p className="text-gray-400 font-bold text-xs uppercase tracking-widest">
-                        New Personnel? <Link to="/register" className="text-emergency-red font-black hover:underline ml-1">Secure Registration</Link>
+                        Don't have an account? <Link to="/register" className="text-emergency-red font-black hover:underline ml-1">Register</Link>
                     </p>
                 </div>
             </div>

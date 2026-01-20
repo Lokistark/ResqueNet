@@ -236,8 +236,8 @@ const Dashboard = ({ user, setUser }) => {
                         <Shield className="text-emergency-red" size={40} />
                         RESQUENET
                     </h1>
-                    <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em] mt-1 shrink-0">
-                        Live Personnel: <span className="text-gray-600">{user.name}</span>
+                    <p className="text-gray-500 font-bold lowercase mt-1 shrink-0">
+                        Logged in as {user.name} ({user.role})
                     </p>
                 </div>
                 <div className="flex items-center gap-5 bg-gray-50 p-3 px-5 rounded-2xl border border-gray-100 w-full sm:w-auto justify-between">
@@ -257,7 +257,7 @@ const Dashboard = ({ user, setUser }) => {
                 <div className="mb-8 overflow-hidden">
                     <div className="bg-blue-600 text-white p-7 rounded-[2rem] shadow-2xl flex items-center justify-between border-b-[12px] border-blue-800 transform hover:scale-[1.01] transition-transform">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-70 mb-2">Authenticated Citizens</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-70 mb-2">Registered Citizens</p>
                             <h3 className="text-5xl font-black leading-none tracking-tighter">{userCount}</h3>
                         </div>
                         <Users size={64} className="opacity-20" />
@@ -276,8 +276,8 @@ const Dashboard = ({ user, setUser }) => {
                         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                         <AlertCircle size={72} className="relative z-10" />
                         <div className="relative z-10 text-center px-4">
-                            <span className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-widest block leading-none">SEND SOS</span>
-                            <span className="text-[10px] sm:text-xs opacity-80 font-black uppercase tracking-[0.2em] mt-4 block">Broadcast location to all rescuers</span>
+                            <span className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-widest block leading-none">SEND EMERGENCY SOS</span>
+                            <span className="text-[10px] sm:text-xs opacity-80 font-black uppercase tracking-[0.2em] mt-4 block">Instantly broadcast location to responders</span>
                         </div>
                     </button>
                 </div>
@@ -289,7 +289,7 @@ const Dashboard = ({ user, setUser }) => {
                     onClick={() => { setShowForm(false); setCurrentView('reports'); }}
                     className={`flex-1 p-5 rounded-2xl font-black text-xs sm:text-sm tracking-widest uppercase flex items-center justify-center gap-3 transition-all ${!showForm && currentView === 'reports' ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
                 >
-                    <List size={22} /> {user.role === 'admin' ? 'Dispatch' : 'Activity'}
+                    <List size={22} /> {user.role === 'admin' ? 'Recent Alerts' : 'My History'}
                 </button>
 
                 {user.role === 'citizen' ? (
@@ -297,14 +297,14 @@ const Dashboard = ({ user, setUser }) => {
                         onClick={() => setShowForm(true)}
                         className={`flex-1 p-5 rounded-2xl font-black text-xs sm:text-sm tracking-widest uppercase flex items-center justify-center gap-3 transition-all ${showForm ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
                     >
-                        <PlusCircle size={22} /> Report
+                        <PlusCircle size={22} /> Detailed Report
                     </button>
                 ) : (
                     <button
                         onClick={() => { setShowForm(false); setCurrentView('users'); }}
                         className={`flex-1 p-5 rounded-2xl font-black text-xs sm:text-sm tracking-widest uppercase flex items-center justify-center gap-3 transition-all ${!showForm && currentView === 'users' ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
                     >
-                        <Users size={22} /> Personnel
+                        <Users size={22} /> Manage Users
                     </button>
                 )}
             </div>

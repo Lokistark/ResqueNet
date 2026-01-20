@@ -33,7 +33,7 @@ const Register = ({ setUser }) => {
                         <Shield className="text-emergency-red" size={56} />
                     </div>
                     <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tighter leading-none">RESQUENET</h1>
-                    <p className="text-gray-400 font-black uppercase text-[10px] tracking-[0.3em] mt-3">Personnel Enlistment</p>
+                    <p className="text-gray-400 font-black uppercase text-[10px] tracking-[0.3em] mt-3">Join Response Network</p>
                 </div>
 
                 {error && (
@@ -47,7 +47,7 @@ const Register = ({ setUser }) => {
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emergency-red transition-colors" size={20} />
                         <input
                             type="text"
-                            placeholder="Full Legal Name"
+                            placeholder="Full Name"
                             className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-emergency-red outline-none transition-all text-sm font-bold placeholder-gray-300"
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -71,7 +71,7 @@ const Register = ({ setUser }) => {
                         <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emergency-red transition-colors" size={20} />
                         <input
                             type="password"
-                            placeholder="Secure Password"
+                            placeholder="Password"
                             className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-emergency-red outline-none transition-all text-sm font-bold placeholder-gray-300"
                             value={formData.password}
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -88,7 +88,7 @@ const Register = ({ setUser }) => {
 
                 <div className="mt-8 pt-8 border-t border-gray-100 text-center">
                     <p className="text-gray-400 font-bold text-xs uppercase tracking-widest text-center">
-                        Already Registered? <Link to="/login" className="text-emergency-red font-black hover:underline ml-1">Personnel Login</Link>
+                        Already have an account? <Link to="/login" className="text-emergency-red font-black hover:underline ml-1">Login</Link>
                     </p>
                 </div>
             </div>

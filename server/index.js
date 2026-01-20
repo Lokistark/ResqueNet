@@ -28,8 +28,20 @@ app.use(helmet());
 
 // Cross-Origin Resource Sharing configuration
 // Restricts API access to our specific frontend domain
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.FRONTEND_URL // Production URL from Vercel
+].filter(Boolean);
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('CORS Policy: Access denied'), false);
+    }
+    return callback(null, true);
+  },
   credentials: true // Required to allow secure HttpOnly cookies
 }));
 
@@ -66,6 +78,9 @@ app.use('/api/', limiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/incidents', incidentRoutes);
 
+// Health Check for Vercel
+app.get('/', (req, res) => res.send('ResqueNet API is Operational.'));
+
 /**
  * DATABASE CONNECTIVITY
  */
@@ -86,9 +101,14 @@ app.use((err, req, res, next) => {
 
 /**
  * SERVER LIFECYCLE
+ * app.listen is bypassed during Vercel serverless execution
  */
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 ResqueNet API Node is live on port ${PORT}`);
-  console.log(`🔒 Security Layers: Helmet, RateLimit, Sanitize, JWT-Cookies ACTIVE`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`🚀 ResqueNet API Node is live on port ${PORT}`);
+    console.log(`🔒 Security Layers: Helmet, RateLimit, Sanitize, JWT-Cookies ACTIVE`);
+  });
+}
+
+module.exports = app; // Export for Vercel

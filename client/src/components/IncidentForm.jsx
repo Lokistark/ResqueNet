@@ -85,8 +85,8 @@ const IncidentForm = ({ onSuccess, isOnline }) => {
     return (
         <form onSubmit={handleSubmit} className="space-y-8 animate-fade-in">
             <div className="border-b-[6px] border-emergency-red pb-4 mb-2">
-                <h2 className="text-2xl sm:text-3xl font-black text-gray-900 lowercase tracking-tighter">New Transmission</h2>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1 italic">Authorized Personnel Only</p>
+                <h2 className="text-2xl sm:text-3xl font-black text-gray-900 uppercase tracking-tight">Report Incident</h2>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1 italic">Join Response Network</p>
             </div>
 
             <div className="space-y-6">
@@ -106,23 +106,23 @@ const IncidentForm = ({ onSuccess, isOnline }) => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 block">Priority Type</label>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 block">Emergency Type</label>
                         <select
                             className="w-full p-4 bg-gray-50 border-2 border-transparent rounded-[1.5rem] focus:bg-white focus:border-emergency-red outline-none font-bold text-gray-800 shadow-inner appearance-none cursor-pointer"
                             value={formData.type}
                             onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                         >
-                            <option value="Fire">Fire Rescue</option>
-                            <option value="Medical">Medical Urgent</option>
-                            <option value="Flood">Water / Flood</option>
-                            <option value="Accident">Vehicle Accident</option>
-                            <option value="Other">Other Emergency</option>
+                            <option value="Fire">Fire</option>
+                            <option value="Medical">Medical</option>
+                            <option value="Flood">Flood</option>
+                            <option value="Accident">Accident</option>
+                            <option value="Other">Other</option>
                         </select>
                     </div>
 
                     <div>
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                            <MapPin size={14} className="text-emergency-red" /> Location Coordinates
+                            <MapPin size={14} className="text-emergency-red" /> Location
                         </label>
                         <div className="flex gap-2">
                             <input
@@ -147,7 +147,7 @@ const IncidentForm = ({ onSuccess, isOnline }) => {
 
                 <div>
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                        <FileText size={14} className="text-emergency-red" /> Detailed Situation Analysis
+                        <FileText size={14} className="text-emergency-red" /> Description
                     </label>
                     <textarea
                         required
@@ -155,7 +155,7 @@ const IncidentForm = ({ onSuccess, isOnline }) => {
                         className="w-full p-6 bg-gray-50 border-2 border-transparent rounded-[2rem] focus:bg-white focus:border-emergency-red outline-none transition-all font-bold text-gray-800 placeholder-gray-300 shadow-inner resize-none"
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        placeholder="Provide critical details for responders..."
+                        placeholder="Describe the emergency in detail..."
                     ></textarea>
                 </div>
             </div>
@@ -171,7 +171,7 @@ const IncidentForm = ({ onSuccess, isOnline }) => {
                 disabled={loading}
                 className="w-full bg-emergency-red text-white p-6 rounded-[2rem] font-black text-sm shadow-2xl hover:bg-emergency-dark transform hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-50 uppercase tracking-[0.3em] border-b-[8px] border-emergency-dark"
             >
-                {loading ? 'Transmitting Data...' : 'Broadcast Emergency Report'}
+                {loading ? 'Submitting...' : 'Submit Emergency Report'}
             </button>
         </form>
     );
