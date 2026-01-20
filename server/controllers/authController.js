@@ -42,29 +42,42 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
     try {
-        const { email, password } = req.body;
-        console.log(`Login attempt for: ${email}`); // DEBUG
+        let { email, password } = req.body;
+
+        // NORMALIZE INPUT
+        email = email ? email.toLowerCase().trim() : '';
+        password = password ? password.trim() : '';
+
+        console.log(`Login normalized attempt for: '${email}' with pass length: ${password.length}`); // DEBUG
 
         if (!email || !password) {
             return res.status(400).json({ status: 'fail', message: 'Please provide email and password' });
         }
 
-        const user = await User.findOne({ email }).select('+password');
+        const user = await User.findOne({ email: email }).select('+password');
+
         if (!user) {
-            console.log('Login failed: User not found in database'); // DEBUG
+            console.log('Login failed: User not found in database');
             return res.status(401).json({ status: 'fail', message: 'Incorrect email or password' });
         }
 
+        // Compare password using the model method
         const isMatch = await user.comparePassword(password);
+
+        // DEBUGGING HASH
+        console.log(`User found: ${user.email}, Role: ${user.role}`);
+        console.log(`Stored Hash: ${user.password.substring(0, 10)}...`);
+        console.log(`Password Match Result: ${isMatch}`);
+
         if (!isMatch) {
-            console.log('Login failed: Password mismatch'); // DEBUG
+            console.log('Login failed: Password mismatch');
             return res.status(401).json({ status: 'fail', message: 'Incorrect email or password' });
         }
 
-        console.log('Login success'); // DEBUG
+        console.log('Login success');
         sendToken(user, 200, res);
     } catch (err) {
-        console.error('Login Error:', err); // DEBUG
+        console.error('Login Error:', err);
         res.status(400).json({ status: 'fail', message: err.message });
     }
 };
