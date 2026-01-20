@@ -1,0 +1,10 @@
+name: Skip GitHub Pages
+on:
+  push:
+    branches: [ master ]
+jobs:
+  skip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip
+        run: echo "Vercel is handling the deployment. Skipping GitHub Pages build."

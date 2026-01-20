@@ -92,18 +92,20 @@ app.get('/', (req, res) => {
 /**
  * DATABASE CONNECTIVITY
  */
+mongoose.set('bufferCommands', false); // Disable buffering so we get immediate errors if DB is down
+
 mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 5000, // Fail fast if DB is down (5s instead of default 30s)
+  serverSelectionTimeoutMS: 5000,
 })
   .then(() => console.log('✅ MongoDB ATLAS Connected Successfully'))
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-// Database connection middleware - Prevents "Buffering Timeout" errors from hanging the server
+// Database connection middleware
 app.use((req, res, next) => {
   if (mongoose.connection.readyState !== 1) {
     return res.status(503).json({
       status: 'error',
-      message: 'Database connection is not established. Please check MongoDB Atlas IP Whitelisting.'
+      message: `Database not ready (Current State: ${mongoose.connection.readyState}). Check Vercel Env Vars for URI typos.`
     });
   }
   next();
