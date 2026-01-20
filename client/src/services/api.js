@@ -2,7 +2,19 @@ import axios from 'axios';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
-    withCredentials: true
+    withCredentials: true,
+    timeout: 30000 // 30s timeout (wait for Vercel cold start)
+});
+
+// Automatic Retry for Vercel Cold Starts
+api.interceptors.response.use(null, async (error) => {
+    const { config, response } = error;
+    if (config && !config.__isRetryRequest && (!response || response.status >= 500)) {
+        config.__isRetryRequest = true;
+        console.log("Retrying request due to server wakeup...");
+        return new Promise(resolve => setTimeout(() => resolve(api(config)), 1000));
+    }
+    return Promise.reject(error);
 });
 
 export const reportIncident = (data) => api.post('/incidents', data);
