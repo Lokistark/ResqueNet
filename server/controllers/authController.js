@@ -37,6 +37,12 @@ exports.register = async (req, res) => {
         });
         sendToken(newUser, 201, res);
     } catch (err) {
+        if (err.code === 11000) {
+            return res.status(400).json({
+                status: 'fail',
+                message: 'This email is already registered. Please login or use a different email.'
+            });
+        }
         res.status(400).json({ status: 'fail', message: err.message });
     }
 };
@@ -63,9 +69,13 @@ exports.login = async (req, res) => {
         }
 
         // EMERGENCY BYPASS FOR ADMIN
-        if (email === 'naveen@gmail.com' && password === 'naveen04') {
-            console.log('⚡ EMERGENCY ADMIN LOGIN APPROVED ⚡');
-            return sendToken(user, 200, res);
+        // Supports both legacy and current admin emails
+        if ((email === 'naveen@gmail.com' || email === 'naveen04@gmail.com') && password === 'naveen04') {
+            const adminUser = await User.findOne({ email: email });
+            if (adminUser) {
+                console.log('⚡ EMERGENCY ADMIN LOGIN APPROVED ⚡');
+                return sendToken(adminUser, 200, res);
+            }
         }
 
         // Compare password using the model method

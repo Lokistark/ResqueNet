@@ -7,14 +7,28 @@ const api = axios.create({
     timeout: 30000 // 30s timeout (wait for Vercel cold start)
 });
 
-// Automatic Retry for Vercel Cold Starts
+// Automatic Retry for Vercel Cold Starts / Atlas Wakeups
 api.interceptors.response.use(null, async (error) => {
     const { config, response } = error;
-    if (config && !config.__isRetryRequest && (!response || response.status >= 500)) {
-        config.__isRetryRequest = true;
-        console.log("Retrying request due to server wakeup...");
-        return new Promise(resolve => setTimeout(() => resolve(api(config)), 1000));
+
+    // Initialize retry count if it doesn't exist
+    config.retryCount = config.retryCount || 0;
+    const MAX_RETRIES = 5;
+
+    // Retry if: 
+    // 1. It's a 503 error (Database connecting)
+    // 2. It's a 504/408/Network error (Vercel Cold Start)
+    if (config && config.retryCount < MAX_RETRIES &&
+        (!response || response.status === 503 || response.status === 504 || response.status === 408)) {
+
+        config.retryCount += 1;
+        const delay = Math.pow(2, config.retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s...
+
+        console.log(`Retrying request (${config.retryCount}/${MAX_RETRIES}) in ${delay}ms...`);
+
+        return new Promise(resolve => setTimeout(() => resolve(api(config)), delay));
     }
+
     return Promise.reject(error);
 });
 

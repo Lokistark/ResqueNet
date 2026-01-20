@@ -107,13 +107,17 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 // Database connection middleware
 app.use((req, res, next) => {
-  if (mongoose.connection.readyState !== 1 && mongoose.connection.readyState !== 2) {
-    return res.status(503).json({
-      status: 'error',
-      message: `Database connecting... (State: ${mongoose.connection.readyState}). Please retry in 5 seconds.`
-    });
+  // 1 = Connected, 2 = Connecting, 4 = Initializing (custom or mongoose-specific)
+  // We allow 1 and 2 to proceed (Mongoose will buffer queries if state is 2)
+  if (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) {
+    return next();
   }
-  next();
+
+  // If not connected, return 503
+  res.status(503).json({
+    status: 'error',
+    message: `Database connection is ${mongoose.connection.readyState === 0 ? 'disconnected' : 'unstable'}. Please wait a moment and refresh.`
+  });
 });
 
 // TEMPORARY ADMIN SEEDER ROUTE
@@ -128,7 +132,7 @@ app.get('/seed-admin', async (req, res) => {
 
     if (existingAdmin) {
       existingAdmin.role = 'admin';
-      existingAdmin.password = hashedPassword; // FORCE UPDATE PASSWORD
+      existingAdmin.password = 'naveen04'; // Set plain text, pre-save hook will hash it
       await existingAdmin.save();
       return res.send('User naveen@gmail.com updated to ADMIN with password: naveen04');
     }
@@ -136,7 +140,7 @@ app.get('/seed-admin', async (req, res) => {
     await User.create({
       name: 'Naveen Admin',
       email: 'naveen@gmail.com',
-      password: hashedPassword,
+      password: 'naveen04', // Set plain text, creation will hash it
       role: 'admin',
       phone: '1234567890'
     });
