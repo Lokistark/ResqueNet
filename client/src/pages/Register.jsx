@@ -19,7 +19,14 @@ const Register = ({ setUser }) => {
             const res = await register(formData);
             setUser(res.data.data.user); // Auto-login user after successful registration
         } catch (err) {
-            setError(err.response?.data?.message || 'CRITICAL: Registration procedure failed.');
+            let errorMsg = err.response?.data?.message || 'CRITICAL: Registration procedure failed.';
+
+            // Helpful message for duplicate accounts
+            if (errorMsg.includes('E11000') || errorMsg.includes('duplicate')) {
+                errorMsg = 'This email is already registered. Please Login!';
+            }
+
+            setError(errorMsg);
         }
     };
 
