@@ -95,7 +95,8 @@ app.get('/', (req, res) => {
 /**
  * DATABASE CONNECTIVITY
  */
-mongoose.set('bufferCommands', false); // Disable buffering so we get immediate errors if DB is down
+// Re-enable buffering so operations wait for connection instead of failing instantly
+mongoose.set('bufferCommands', true);
 
 mongoose.connect(process.env.MONGODB_URI, {
   serverSelectionTimeoutMS: 5000,
