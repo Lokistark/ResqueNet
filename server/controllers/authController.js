@@ -43,17 +43,28 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
+        console.log(`Login attempt for: ${email}`); // DEBUG
+
         if (!email || !password) {
             return res.status(400).json({ status: 'fail', message: 'Please provide email and password' });
         }
 
         const user = await User.findOne({ email }).select('+password');
-        if (!user || !(await user.comparePassword(password))) {
+        if (!user) {
+            console.log('Login failed: User not found in database'); // DEBUG
             return res.status(401).json({ status: 'fail', message: 'Incorrect email or password' });
         }
 
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) {
+            console.log('Login failed: Password mismatch'); // DEBUG
+            return res.status(401).json({ status: 'fail', message: 'Incorrect email or password' });
+        }
+
+        console.log('Login success'); // DEBUG
         sendToken(user, 200, res);
     } catch (err) {
+        console.error('Login Error:', err); // DEBUG
         res.status(400).json({ status: 'fail', message: err.message });
     }
 };
