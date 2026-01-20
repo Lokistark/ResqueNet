@@ -29,21 +29,9 @@ app.use(helmet());
 
 // Cross-Origin Resource Sharing configuration
 // Restricts API access to our specific frontend domain
-const allowedOrigins = [
-  'http://localhost:5173',
-  process.env.FRONTEND_URL // Production URL from Vercel
-].filter(Boolean);
-
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error('CORS Policy: Access denied'), false);
-    }
-    return callback(null, true);
-  },
-  credentials: true // Required to allow secure HttpOnly cookies
+  origin: '*', // ALLOW EVERYTHING for debugging
+  credentials: true
 }));
 
 // Body parser to read JSON data from incoming requests
