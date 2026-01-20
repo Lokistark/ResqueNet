@@ -12,7 +12,8 @@ const sendToken = (user, statusCode, res) => {
     const cookieOptions = {
         expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production'
+        secure: true, // ALWAYS secure for Vercel (HTTPS)
+        sameSite: 'none' // REQUIRED for cross-site (frontend.vercel.app -> backend.vercel.app)
     };
 
     res.cookie('jwt', token, cookieOptions);
