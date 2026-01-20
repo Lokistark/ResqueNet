@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+    // Fallback to the live Vercel backend if Env Var is missing (Crucial for Vercel)
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'https://resque-net.vercel.app/api',
     withCredentials: true,
     timeout: 30000 // 30s timeout (wait for Vercel cold start)
 });
