@@ -124,11 +124,11 @@ const IncidentForm = ({ onSuccess, isOnline }) => {
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
                             <MapPin size={14} className="text-emergency-red" /> Location
                         </label>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
                             <input
                                 type="text"
                                 required
-                                className="flex-1 p-4 bg-gray-50 border-2 border-transparent rounded-[1.5rem] focus:bg-white focus:border-emergency-red outline-none font-bold text-gray-800 placeholder-gray-300 shadow-inner"
+                                className="flex-1 min-w-0 p-4 bg-gray-50 border-2 border-transparent rounded-[1.5rem] focus:bg-white focus:border-emergency-red outline-none font-bold text-gray-800 placeholder-gray-300 shadow-inner text-sm sm:text-base"
                                 value={formData.location}
                                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                                 placeholder="Detecting or Manually Enter..."
@@ -136,7 +136,7 @@ const IncidentForm = ({ onSuccess, isOnline }) => {
                             <button
                                 type="button"
                                 onClick={getLocation}
-                                className="px-5 bg-emergency-red text-white rounded-[1.5rem] hover:bg-emergency-dark active:scale-95 transition-all font-black text-xs uppercase tracking-widest shadow-lg"
+                                className="shrink-0 px-4 py-4 bg-emergency-red text-white rounded-[1.25rem] hover:bg-emergency-dark active:scale-95 transition-all font-black text-[10px] sm:text-xs uppercase tracking-widest shadow-lg flex items-center justify-center min-w-[60px]"
                                 title="Use GPS"
                             >
                                 GPS
