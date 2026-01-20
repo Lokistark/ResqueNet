@@ -128,25 +128,35 @@ const Dashboard = ({ user, setUser }) => {
         try {
             // Promise wrapper for Geolocation API
             const getLocation = (highAccuracy) => new Promise((resolve, reject) => {
+                if (!navigator.geolocation) return reject(new Error("Geolocation not supported"));
                 navigator.geolocation.getCurrentPosition(resolve, reject, {
                     enableHighAccuracy: highAccuracy,
-                    timeout: 6000,
+                    timeout: 20000, // Wait 20s (increased from 6s)
                     maximumAge: 0
                 });
             });
 
             let position;
+            let locationString = "Unknown Location";
+
             try {
                 position = await getLocation(true); // Attempt high precision (GPS)
+                locationString = `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`;
             } catch (err) {
-                console.warn("GPS failed, falling back to network triangulation.");
-                position = await getLocation(false); // Fallback to cell/wifi accuracy
+                console.warn("High accuracy GPS failed, trying low accuracy...");
+                try {
+                    position = await getLocation(false); // Fallback to cell/wifi accuracy
+                    locationString = `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`;
+                } catch (err2) {
+                    console.warn("All GPS failed. Sending without precise location.");
+                    locationString = "GPS FAILED (Unknown)";
+                }
             }
 
             const sosData = {
                 title: "SOS EMERGENCY",
                 type: "Other",
-                location: `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`,
+                location: locationString,
                 description: "CRITICAL: Urgent help requested via SOS button."
             };
 
@@ -154,9 +164,9 @@ const Dashboard = ({ user, setUser }) => {
             setSosSuccess(true);
             setTimeout(() => setSosSuccess(false), 5000);
         } catch (err) {
-            // Rollback optimistic update if the entire process fails
+            // Rollback optimistic update if the entire process fails (Network error)
             setIncidents(prev => prev.filter(inc => inc._id !== tempId));
-            alert("EMERGENCY FAILURE: " + (err.code === 1 ? "Location Permissions Required" : "Signal Timeout"));
+            alert("EMERGENCY FAILURE: Check Internet Connection");
         } finally {
             setSosLoading(false);
             fetchIncidents(); // Sync with real server data
