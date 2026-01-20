@@ -112,13 +112,43 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 // Database connection middleware
 app.use((req, res, next) => {
-  if (mongoose.connection.readyState !== 1) {
+  if (mongoose.connection.readyState !== 1 && !mongoose.connection.readyState === 2) {
     return res.status(503).json({
       status: 'error',
       message: `Database not ready (Current State: ${mongoose.connection.readyState}). Check Vercel Env Vars for URI typos.`
     });
   }
   next();
+});
+
+// TEMPORARY ADMIN SEEDER ROUTE
+app.get('/seed-admin', async (req, res) => {
+  try {
+    const User = require('./models/User'); // Ensure path is correct
+    const bcrypt = require('bcryptjs');
+
+    const existingAdmin = await User.findOne({ email: 'naveen@gmail.com' });
+    if (existingAdmin) {
+      existingAdmin.role = 'admin';
+      await existingAdmin.save();
+      return res.send('User naveen@gmail.com updated to ADMIN');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash('naveen04', salt);
+
+    await User.create({
+      name: 'Naveen Admin',
+      email: 'naveen@gmail.com',
+      password: hashedPassword,
+      role: 'admin',
+      phone: '1234567890'
+    });
+
+    res.send('✅ Admin User Created: naveen@gmail.com / naveen04');
+  } catch (err) {
+    res.status(500).send('Error creating admin: ' + err.message);
+  }
 });
 
 /**
