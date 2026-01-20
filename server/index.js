@@ -78,7 +78,9 @@ app.get('/', (req, res) => {
     status: 'Operational',
     database: dbStatus,
     dbError: dbError ? dbError.message : null,
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    // Debug helper: Show first 15 chars of URI to confirm which one is being used
+    current_connection_string: process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 15) + '...' : 'NOT_SET'
   });
 });
 
