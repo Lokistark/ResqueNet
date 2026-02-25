@@ -1,4 +1,4 @@
-/** Force Redeploy: 1 */
+/** Force Redeploy: 2 */
 /**
  * RESQUENET BACKEND CORE
  * ----------------------
@@ -60,7 +60,9 @@ app.use(cors({
   origin: (origin, callback) => {
     callback(null, true); // Reflect request origin
   },
-  credentials: true
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
 }));
 
 // Body parser to read JSON data from incoming requests
@@ -99,8 +101,10 @@ app.use('/api/', limiter);
 /**
  * ROUTE HANDLERS
  */
+// Ensure paths match exactly as sent by frontend: /api/auth/login
 app.use('/api/auth', authRoutes);
 app.use('/api/incidents', incidentRoutes);
+
 
 // Health Check for Vercel
 let dbError = null;
@@ -198,7 +202,11 @@ app.use((err, req, res, next) => {
  * SERVER LIFECYCLE
  * app.listen is bypassed during Vercel serverless execution
  */
-if (process.env.NODE_ENV !== 'production') {
+/**
+ * SERVER LIFECYCLE
+ * app.listen is bypassed during Vercel serverless execution
+ */
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
   server.listen(PORT, () => {
     console.log(`🚀 ResqueNet API Node is live on port ${PORT}`);
@@ -206,5 +214,6 @@ if (process.env.NODE_ENV !== 'production') {
     console.log(`📡 WebSocket Engine: Socket.io INITIALIZED`);
   });
 }
+
 
 module.exports = app; // Export for Vercel
