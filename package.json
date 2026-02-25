@@ -1,7 +1,25 @@
 {
     "name": "resquenet-root",
+    "version": "1.0.0",
     "private": true,
     "engines": {
         "node": ">=18.x"
+    },
+    "scripts": {
+        "build": "cd client && npm install && npm run build"
+    },
+    "dependencies": {
+        "bcryptjs": "^3.0.3",
+        "cookie-parser": "^1.4.7",
+        "cors": "^2.8.5",
+        "dotenv": "^17.2.3",
+        "express": "^4.19.2",
+        "express-rate-limit": "^7.1.5",
+        "express-validator": "^7.0.1",
+        "helmet": "^7.1.0",
+        "jsonwebtoken": "^9.0.2",
+        "mongo-sanitize": "^1.1.0",
+        "mongoose": "^8.2.1",
+        "socket.io": "^4.8.3"
     }
 }
