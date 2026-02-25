@@ -405,57 +405,57 @@ const Dashboard = ({ user, setUser }) => {
 
             {/* --- CITIZEN SOS ACTION --- */}
             {user.role === 'citizen' && (
-                <div className="mb-8 relative group">
+                <div className="mb-6 sm:mb-8 relative group">
                     <button
                         disabled={sosLoading}
                         onClick={handleSOS}
-                        className="w-full bg-emergency-red hover:bg-emergency-dark text-white py-10 sm:py-14 rounded-[2.5rem] shadow-2xl flex flex-col items-center justify-center gap-4 transform active:scale-95 transition-all animate-pulse-slow border-b-[16px] border-emergency-dark relative overflow-hidden"
+                        className="w-full bg-emergency-red hover:bg-emergency-dark text-white py-6 sm:py-14 rounded-3xl sm:rounded-[2.5rem] shadow-2xl flex flex-col items-center justify-center gap-3 sm:gap-4 transform active:scale-95 transition-all animate-pulse-slow border-b-[10px] sm:border-b-[16px] border-emergency-dark relative overflow-hidden"
                     >
                         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <AlertCircle size={72} className="relative z-10" />
+                        <AlertCircle size={48} className="sm:size-[72] relative z-10" />
                         <div className="relative z-10 text-center px-4">
-                            <span className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-widest block leading-none">SEND EMERGENCY SOS</span>
-                            <span className="text-[10px] sm:text-xs opacity-80 font-black uppercase tracking-[0.2em] mt-4 block">Instantly broadcast location to responders</span>
+                            <span className="text-xl sm:text-4xl lg:text-5xl font-black uppercase tracking-widest block leading-tight">SEND EMERGENCY SOS</span>
+                            <span className="text-[8px] sm:text-xs opacity-80 font-black uppercase tracking-[0.2em] mt-2 sm:mt-4 block">Instantly broadcast location to responders</span>
                         </div>
                     </button>
                 </div>
             )}
 
             {/* --- NAVIGATION TOGGLES --- */}
-            <div className="flex gap-3 sm:gap-6 mb-8">
+            <div className="flex gap-2 sm:gap-6 mb-6 sm:mb-8">
                 <button
                     onClick={() => { setShowForm(false); setCurrentView('reports'); }}
-                    className={`flex-1 p-5 rounded-2xl font-black text-xs sm:text-sm tracking-widest uppercase flex items-center justify-center gap-3 transition-all ${!showForm && currentView === 'reports' ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                    className={`flex-1 p-3 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-sm tracking-widest uppercase flex items-center justify-center gap-2 sm:gap-3 transition-all ${!showForm && currentView === 'reports' ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
                 >
-                    <List size={22} /> {user.role === 'admin' ? 'Recent Alerts' : 'My History'}
+                    <List size={18} className="sm:size-[22]" /> {user.role === 'admin' ? 'Recent Alerts' : 'My History'}
                 </button>
 
                 {user.role === 'citizen' ? (
                     <button
                         onClick={() => setShowForm(true)}
-                        className={`flex-1 p-5 rounded-2xl font-black text-xs sm:text-sm tracking-widest uppercase flex items-center justify-center gap-3 transition-all ${showForm ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                        className={`flex-1 p-3 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-sm tracking-widest uppercase flex items-center justify-center gap-2 sm:gap-3 transition-all ${showForm ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
                     >
-                        <PlusCircle size={22} /> Detailed Report
+                        <PlusCircle size={18} className="sm:size-[22]" /> Detailed Report
                     </button>
                 ) : (
                     <button
                         onClick={() => { setShowForm(false); setCurrentView('users'); }}
-                        className={`flex-1 p-5 rounded-2xl font-black text-xs sm:text-sm tracking-widest uppercase flex items-center justify-center gap-3 transition-all ${!showForm && currentView === 'users' ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                        className={`flex-1 p-3 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-sm tracking-widest uppercase flex items-center justify-center gap-2 sm:gap-3 transition-all ${!showForm && currentView === 'users' ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
                     >
-                        <Users size={22} /> Manage Users
+                        <Users size={18} className="sm:size-[22]" /> Manage Users
                     </button>
                 )}
             </div>
 
             {/* --- MAIN CONTENT AREA --- */}
-            <main className="bg-white rounded-[2.5rem] shadow-2xl p-6 sm:p-10 border border-gray-100">
+            <main className="bg-white rounded-3xl sm:rounded-[2.5rem] shadow-2xl p-4 sm:p-10 border border-gray-100">
                 {showForm ? (
                     <IncidentForm onSuccess={() => { setShowForm(false); fetchData(); }} isOnline={isOnline} />
                 ) : currentView === 'reports' ? (
-                    <div className="space-y-6">
+                    <div className="space-y-4 sm:space-y-6">
                         <div className="flex items-center justify-between mb-2">
-                            <h2 className="text-xl sm:text-2xl font-black text-gray-900 lowercase tracking-tight">Active Transmissions</h2>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-3 py-1 rounded-full">{incidents.length} Found</span>
+                            <h2 className="text-lg sm:text-2xl font-black text-gray-900 lowercase tracking-tight">Active Transmissions</h2>
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full">{incidents.length} Found</span>
                         </div>
 
                         {incidents.length === 0 ? (
@@ -464,72 +464,72 @@ const Dashboard = ({ user, setUser }) => {
                                 <p className="text-gray-400 font-bold uppercase text-xs tracking-widest italic">All Quiet. No active alerts reported.</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 gap-6">
+                            <div className="grid grid-cols-1 gap-4 sm:gap-6">
                                 {incidents.map(incident => (
-                                    <div key={incident._id} className={`border-l-[6px] p-6 rounded-3xl transition-all hover:shadow-xl group ${incident.status === 'Resolved' ? 'border-green-500 bg-green-50/30' :
+                                    <div key={incident._id} className={`border-l-[4px] sm:border-l-[6px] p-4 sm:p-6 rounded-2xl sm:rounded-3xl transition-all hover:shadow-xl group ${incident.status === 'Resolved' ? 'border-green-500 bg-green-50/30' :
                                         incident.status === 'In Progress' ? 'border-blue-500 bg-blue-50/30' : 'border-emergency-red bg-gray-50'
                                         }`}>
                                         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                                             <div className="w-full sm:w-auto">
-                                                <h3 className="font-black text-xl sm:text-2xl text-gray-900 leading-tight mb-1">{incident.title}</h3>
+                                                <h3 className="font-black text-lg sm:text-2xl text-gray-900 leading-tight mb-1">{incident.title}</h3>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] font-black uppercase text-gray-400 tracking-[0.3em]">REF: {incident._id.slice(-8)}</span>
-                                                    {incident.isOptimistic && <span className="animate-pulse text-emergency-red font-black text-[9px] uppercase tracking-widest">[SENDING...]</span>}
-                                                    {incident.isLocal && <span className="text-orange-500 font-black text-[9px] uppercase tracking-widest">[QUEUED OFFLINE]</span>}
+                                                    <span className="text-[8px] sm:text-[9px] font-black uppercase text-gray-400 tracking-[0.3em]">REF: {incident._id.slice(-8)}</span>
+                                                    {incident.isOptimistic && <span className="animate-pulse text-emergency-red font-black text-[8px] sm:text-[9px] uppercase tracking-widest">[SENDING...]</span>}
+                                                    {incident.isLocal && <span className="text-orange-500 font-black text-[8px] sm:text-[9px] uppercase tracking-widest">[QUEUED OFFLINE]</span>}
                                                 </div>
                                             </div>
 
-                                            <div className="flex sm:flex-col items-center sm:items-end w-full sm:w-auto shrink-0 gap-3">
-                                                <div className="flex items-center gap-3">
+                                            <div className="flex sm:flex-col items-center sm:items-end w-full sm:w-auto shrink-0 gap-2 sm:gap-3">
+                                                <div className="flex items-center gap-2 sm:gap-3">
                                                     <button
                                                         onClick={() => setDeleteModal({ show: true, id: incident._id, type: 'incident' })}
-                                                        className="p-2 sm:p-0 text-gray-200 hover:text-emergency-red transition-all"
+                                                        className="p-1.5 sm:p-0 text-gray-200 hover:text-emergency-red transition-all"
                                                         title="Redact Report"
                                                     >
-                                                        <Trash2 size={20} />
+                                                        <Trash2 size={18} className="sm:size-[20]" />
                                                     </button>
-                                                    <span className="min-w-[80px] text-center px-3 py-1.5 bg-emergency-red text-white text-[10px] font-black rounded-xl uppercase tracking-widest shadow-lg">
+                                                    <span className="px-2 py-1 sm:px-3 sm:py-1.5 bg-emergency-red text-white text-[9px] sm:text-[10px] font-black rounded-lg sm:rounded-xl uppercase tracking-widest shadow-lg">
                                                         {incident.type}
                                                     </span>
                                                 </div>
-                                                <span className={`min-w-[90px] text-center flex items-center justify-center gap-1.5 text-[10px] font-black uppercase px-3 py-1.5 rounded-xl shadow-sm border ${incident.status === 'Resolved' ? 'bg-green-100 text-green-700 border-green-200' :
+                                                <span className={`flex items-center justify-center gap-1 text-[9px] sm:text-[10px] font-black uppercase px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl shadow-sm border ${incident.status === 'Resolved' ? 'bg-green-100 text-green-700 border-green-200' :
                                                     incident.status === 'In Progress' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-orange-100 text-orange-700 border-orange-200'
                                                     }`}>
-                                                    {incident.status === 'Resolved' ? <CheckCircle size={12} /> : <Clock size={12} />} {incident.status}
+                                                    {incident.status === 'Resolved' ? <CheckCircle size={10} className="sm:size-[12]" /> : <Clock size={10} className="sm:size-[12]" />} {incident.status}
                                                 </span>
                                             </div>
                                         </div>
 
-                                        <div className="mt-8 space-y-5">
-                                            <div className="bg-white/60 p-5 rounded-2xl border border-white/50 shadow-inner">
-                                                <span className="font-black uppercase text-[10px] text-gray-400 block mb-2 tracking-[0.2em]">SITUATION SUMMARY</span>
-                                                <p className="text-gray-700 text-sm sm:text-base leading-relaxed font-medium">{incident.description}</p>
+                                        <div className="mt-6 sm:mt-8 space-y-4 sm:space-y-5">
+                                            <div className="bg-white/60 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-white/50 shadow-inner">
+                                                <span className="font-black uppercase text-[8px] sm:text-[10px] text-gray-400 block mb-1 sm:mb-2 tracking-[0.2em]">SITUATION SUMMARY</span>
+                                                <p className="text-gray-700 text-xs sm:text-base leading-relaxed font-medium">{incident.description}</p>
                                             </div>
-                                            <div className="bg-white/60 p-5 rounded-2xl border border-white/50 shadow-inner inline-flex flex-col w-full sm:w-auto">
-                                                <span className="font-black uppercase text-[10px] text-gray-400 block mb-2 tracking-[0.2em]">COORDINATES</span>
-                                                <p className="text-gray-900 font-black text-sm tracking-tight">{incident.location}</p>
+                                            <div className="bg-white/60 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-white/50 shadow-inner inline-flex flex-col w-full sm:w-auto">
+                                                <span className="font-black uppercase text-[8px] sm:text-[10px] text-gray-400 block mb-1 sm:mb-2 tracking-[0.2em]">COORDINATES</span>
+                                                <p className="text-gray-900 font-black text-xs sm:text-sm tracking-tight">{incident.location}</p>
                                             </div>
                                         </div>
 
                                         {user.role === 'admin' && (
-                                            <div className="mt-10 pt-8 border-t border-gray-200/50">
-                                                <span className="block text-[10px] font-black text-gray-400 uppercase mb-4 tracking-[0.3em] text-center sm:text-left">COMMAND: UPDATE RESOLUTION STATUS</span>
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <div className="mt-8 pt-6 border-t border-gray-200/50">
+                                                <span className="block text-[8px] sm:text-[10px] font-black text-gray-400 uppercase mb-3 tracking-[0.3em] text-center sm:text-left">COMMAND: UPDATE RESOLUTION STATUS</span>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                                                     <button
                                                         onClick={() => handleStatusChange(incident._id, 'Pending')}
-                                                        className={`px-5 py-3 text-[10px] font-black rounded-xl transition-all border-2 ${incident.status === 'Pending' ? 'bg-orange-500 text-white border-orange-500 shadow-xl scale-105' : 'bg-white border-gray-100 text-orange-500 hover:border-orange-500'}`}
+                                                        className={`px-4 py-2 sm:px-5 sm:py-3 text-[9px] sm:text-[10px] font-black rounded-xl transition-all border-2 ${incident.status === 'Pending' ? 'bg-orange-500 text-white border-orange-500 shadow-xl scale-105' : 'bg-white border-gray-100 text-orange-500 hover:border-orange-500'}`}
                                                     >
                                                         PENDING
                                                     </button>
                                                     <button
                                                         onClick={() => handleStatusChange(incident._id, 'In Progress')}
-                                                        className={`px-5 py-3 text-[10px] font-black rounded-xl transition-all border-2 ${incident.status === 'In Progress' ? 'bg-blue-500 text-white border-blue-500 shadow-xl scale-105' : 'bg-white border-gray-100 text-blue-500 hover:border-blue-500'}`}
+                                                        className={`px-4 py-2 sm:px-5 sm:py-3 text-[9px] sm:text-[10px] font-black rounded-xl transition-all border-2 ${incident.status === 'In Progress' ? 'bg-blue-500 text-white border-blue-500 shadow-xl scale-105' : 'bg-white border-gray-100 text-blue-500 hover:border-blue-500'}`}
                                                     >
                                                         IN PROGRESS
                                                     </button>
                                                     <button
                                                         onClick={() => handleStatusChange(incident._id, 'Resolved')}
-                                                        className={`px-5 py-3 text-[10px] font-black rounded-xl transition-all border-2 ${incident.status === 'Resolved' ? 'bg-green-600 text-white border-green-600 shadow-xl scale-105' : 'bg-white border-gray-100 text-green-600 hover:border-green-600'}`}
+                                                        className={`px-4 py-2 sm:px-5 sm:py-3 text-[9px] sm:text-[10px] font-black rounded-xl transition-all border-2 ${incident.status === 'Resolved' ? 'bg-green-600 text-white border-green-600 shadow-xl scale-105' : 'bg-white border-gray-100 text-green-600 hover:border-green-600'}`}
                                                     >
                                                         RESOLVED
                                                     </button>
