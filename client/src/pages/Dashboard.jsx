@@ -46,12 +46,19 @@ const Dashboard = ({ user, setUser }) => {
         // Event: New incident reported by ANY user
         socket.on('new_incident', (newIncident) => {
             console.log('📡 REAL-TIME: New Incident Received', newIncident);
-            setIncidents(prev => {
-                // Check if we already have this incident (e.g. from optimistic update)
-                const exists = prev.find(inc => inc._id === newIncident._id || inc._id === `local-${newIncident.id}`);
-                if (exists) return prev;
-                return [newIncident, ...prev];
-            });
+
+            // SECURITY FILTER: Citizens should only see their own reports in real-time
+            // Admins see everything.
+            if (user.role === 'admin' || newIncident.reporter === user.name) {
+                setIncidents(prev => {
+                    // Check if we already have this incident
+                    const exists = prev.find(inc => inc._id === newIncident._id);
+                    if (exists) return prev;
+
+                    // Remove optimistic SOS report if it matches the new one (approximate matching)
+                    return [newIncident, ...prev.filter(inc => !inc.isOptimistic)];
+                });
+            }
         });
 
         // Event: Incident status updated by admin
@@ -141,13 +148,19 @@ const Dashboard = ({ user, setUser }) => {
      * Provides immediate visual feedback to the dispatcher.
      */
     const handleStatusChange = async (id, newStatus) => {
+        // OPTIMISTIC UPDATE: Update UI immediately
+        setIncidents(prev => prev.map(inc =>
+            inc._id === id ? { ...inc, status: newStatus } : inc
+        ));
+
         try {
             await updateIncidentStatus(id, newStatus);
             setStatusUpdateSuccess(true);
             setTimeout(() => setStatusUpdateSuccess(false), 3000);
-            fetchData();
+            // No need to fetchData here as socket and local state handle it
         } catch (err) {
-            alert('CRITICAL: Status update synchronization failed.');
+            alert('CRITICAL: Status update synchronization failed. Rolling back...');
+            fetchData(); // Rollback to server state
         }
     };
 
@@ -156,16 +169,27 @@ const Dashboard = ({ user, setUser }) => {
      * Controlled via a secure confirmation modal.
      */
     const handleDelete = async () => {
+        const targetId = deleteModal.id;
+        const targetType = deleteModal.type;
+
+        // OPTIMISTIC DELETE: Remove from UI instantly
+        if (targetType === 'incident') {
+            setIncidents(prev => prev.filter(inc => inc._id !== targetId));
+        } else {
+            setUsers(prev => prev.filter(u => u._id !== targetId));
+            setUserCount(prev => prev - 1);
+        }
+
         try {
-            if (deleteModal.type === 'incident') {
-                await deleteIncident(deleteModal.id);
+            if (targetType === 'incident') {
+                await deleteIncident(targetId);
             } else {
-                await deleteUserAccount(deleteModal.id);
+                await deleteUserAccount(targetId);
             }
             setDeleteModal({ show: false, id: null, type: 'incident' });
-            fetchData();
         } catch (err) {
-            alert(err.response?.data?.message || 'CRITICAL: Deletion failed.');
+            alert(err.response?.data?.message || 'CRITICAL: Deletion failed. Rolling back...');
+            fetchData(); // Rollback on error
         }
     };
 
