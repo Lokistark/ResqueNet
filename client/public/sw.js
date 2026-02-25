@@ -104,7 +104,7 @@ async function syncReports() {
 
                 console.log(`SW: Found ${reports.length} pending reports. Syncing...`);
 
-                const backendUrl = self.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
+                const backendUrl = ''; // Use relative paths for proxy support
 
                 for (const report of reports) {
                     try {

@@ -8,10 +8,22 @@ import Register from './pages/Register';
 
 function App() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start as loading to check session
 
   useEffect(() => {
-    setLoading(false);
+    const checkSession = async () => {
+      try {
+        const { getMe } = await import('./services/api');
+        const res = await getMe();
+        setUser(res.data.data.user);
+      } catch (err) {
+        console.log('No active session.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkSession();
 
     // Register Service Worker
     if ('serviceWorker' in navigator) {

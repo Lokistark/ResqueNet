@@ -4,7 +4,7 @@ import { saveReportLocally } from '../services/db';
 import { MapPin, AlertTriangle, FileText, User } from 'lucide-react';
 import DOMPurify from 'dompurify';
 
-const IncidentForm = ({ onSuccess, isOnline }) => {
+const IncidentForm = ({ onSuccess, isOnline, user, setIncidents }) => {
     // --- STATE MANAGEMENT ---
     const [formData, setFormData] = useState({
         title: '',
@@ -25,7 +25,6 @@ const IncidentForm = ({ onSuccess, isOnline }) => {
         setLoading(true);
         setMessage('');
 
-        // Security: Sanitize user input before processing
         const sanitizedData = {
             title: DOMPurify.sanitize(formData.title),
             type: formData.type,
@@ -33,24 +32,33 @@ const IncidentForm = ({ onSuccess, isOnline }) => {
             description: DOMPurify.sanitize(formData.description)
         };
 
+        const tempId = 'temp-' + Date.now();
+        const optimisticReport = {
+            ...sanitizedData,
+            _id: tempId,
+            status: 'Syncing...',
+            reporter: user.name,
+            createdAt: new Date().toISOString(),
+            isOptimistic: true
+        };
+
+        // INSTANT UI FEEDBACK
+        setIncidents(prev => [optimisticReport, ...prev]);
+        onSuccess(); // Close form immediately for "Much Fast" feel
+
         if (isOnline) {
             try {
                 await reportIncident(sanitizedData);
-                setMessage('REPORT TRANSMITTED SUCCESSFULLY');
-                setTimeout(onSuccess, 1500);
+                // The socket message 'new_incident' will handle replacing the optimistic one
             } catch (err) {
-                // If network fails during transmit, queue it
-                setMessage('SYNC QUEUED: CONNECTION UNSTABLE');
+                // If it really fails (not just offline), roll back or mark as local
+                console.error("REPORT FAIL:", err);
                 await saveReportLocally({ ...sanitizedData, createdAt: new Date().toISOString() });
                 registerSync();
-                setTimeout(onSuccess, 1500);
             }
         } else {
-            // Offline mode: Store in browser DB until connection returns
             await saveReportLocally({ ...sanitizedData, createdAt: new Date().toISOString() });
-            setMessage('OFFLINE MODE: REPORT QUEUED FOR DISPATCH');
             registerSync();
-            setTimeout(onSuccess, 2000);
         }
         setLoading(false);
     };

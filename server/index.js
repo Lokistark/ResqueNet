@@ -25,14 +25,15 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: (origin, callback) => {
-      // Allow all origins in development for mobile/lab access
-      return callback(null, true);
-    },
+    origin: (origin, callback) => callback(null, true),
     methods: ["GET", "POST", "PATCH", "DELETE"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
-  }
+  },
+  // HIGH-PERFORMANCE SETTINGS: Detect disconnection faster and respond quicker
+  pingTimeout: 10000,
+  pingInterval: 5000,
+  transports: ['websocket', 'polling']
 });
 
 // Attach socket.io to the app instance for access in controllers
@@ -64,6 +65,12 @@ app.use(cors({
 
 // Body parser to read JSON data from incoming requests
 app.use(express.json());
+
+// Request logging for debugging mobile connectivity
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from ${req.ip}`);
+  next();
+});
 
 // Parser for reading cookies in the auth middleware
 app.use(cookieParser());
@@ -115,11 +122,11 @@ app.get('/', (req, res) => {
  */
 // Re-enable buffering so operations wait for connection instead of failing instantly
 mongoose.set('bufferCommands', true);
-mongoose.set('bufferTimeoutMS', 30000); // Wait 30s for connection before failing ops
+mongoose.set('bufferTimeoutMS', 15000); // Reduce wait from 30s to 15s
 
 mongoose.connect(process.env.MONGODB_URI, {
-  serverSelectionTimeoutMS: 30000, // Wait 30s for initial connection
-  socketTimeoutMS: 45000,
+  serverSelectionTimeoutMS: 15000, // Faster failover for DB connection
+  socketTimeoutMS: 30000,
 })
   .then(() => {
     console.log('✅ MongoDB ATLAS Connected Successfully');

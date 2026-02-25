@@ -6,11 +6,8 @@ import StatusIndicator from '../components/StatusIndicator';
 import { getLocalReports, deleteLocalReport } from '../services/db';
 import { io } from 'socket.io-client';
 
-// Determine Socket Endpoint based on environment
-const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
-const SOCKET_URL = (apiUrl.startsWith('http'))
-    ? apiUrl.replace('/api', '')
-    : (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5000` : window.location.origin);
+// Use current origin for socket; Vite proxy handles routing in dev, and relative works in prod
+const SOCKET_URL = window.location.origin;
 
 const Dashboard = ({ user, setUser }) => {
     // --- STATE MANAGEMENT ---
@@ -212,7 +209,6 @@ const Dashboard = ({ user, setUser }) => {
         try {
             if (targetType === 'incident') {
                 if (targetId.toString().startsWith('local-')) {
-                    // Extract the numeric ID and delete from IndexedDB
                     const localId = parseInt(targetId.toString().replace('local-', ''));
                     await deleteLocalReport(localId);
                     console.log('🗑️ OFFLINE: Local report redacted');
@@ -223,10 +219,11 @@ const Dashboard = ({ user, setUser }) => {
                 await deleteUserAccount(targetId);
             }
             setDeleteModal({ show: false, id: null, type: 'incident' });
+            // RELY ON SOCKET FOR SYNC - NO REFETCH NEEDED ON SUCCESS
         } catch (err) {
             console.error('DELETION ERROR:', err);
-            alert(err.response?.data?.message || 'CRITICAL: Deletion failed. Rolling back...');
-            fetchData(); // Rollback on error
+            alert(err.response?.data?.message || 'CRITICAL: Deletion sync failed. Rolling back...');
+            fetchData(); // ONLY ROLLBACK ON GENUINE ERROR
         }
     };
 
@@ -498,7 +495,12 @@ const Dashboard = ({ user, setUser }) => {
             {/* --- MAIN CONTENT AREA --- */}
             <main className="bg-white rounded-3xl sm:rounded-[2.5rem] shadow-2xl p-4 sm:p-10 border border-gray-100">
                 {showForm ? (
-                    <IncidentForm onSuccess={() => { setShowForm(false); fetchData(); }} isOnline={isOnline} />
+                    <IncidentForm
+                        onSuccess={() => setShowForm(false)}
+                        isOnline={isOnline}
+                        user={user}
+                        setIncidents={setIncidents}
+                    />
                 ) : currentView === 'reports' ? (
                     <div className="space-y-4 sm:space-y-6">
                         <div className="flex items-center justify-between mb-2">

@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    // In production/Vercel, use absolute URL. In local dev, relative is safer for SW sync.
-    baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5000/api` : '/api'),
+    baseURL: '/api', // Use relative path; Vite proxy handles this in dev, and Vercel in prod
     withCredentials: true,
     timeout: 30000 // 30s timeout
 });
@@ -21,21 +20,18 @@ api.interceptors.response.use(null, async (error) => {
 
     // Initialize retry count
     config.retryCount = config.retryCount || 0;
-    const MAX_RETRIES = 2; // Reduced from 3
+    const MAX_RETRIES = 1; // Direct retry once, then fail fast for better UX
 
     // Retry if: 
     // 1. It's a 503 error (Database connecting)
     // 2. It's a network error (no response)
-    // 3. It's a 408 Timeout
     if (config && config.retryCount < MAX_RETRIES &&
-        (!response || response.status === 503 || response.status === 408)) {
+        (!response || response.status === 503)) {
 
         config.retryCount += 1;
-        const delay = 1000; // Constant 1s delay instead of exponential
-
-        console.log(`API: Fast Retry (${config.retryCount}/${MAX_RETRIES}) for ${config.url}...`);
-
-        return new Promise(resolve => setTimeout(() => resolve(api(config)), delay));
+        // ZERO DELAY RETRY: Don't make the user wait if it was just a transient hiccup
+        console.log(`API: Rapid Retry (${config.retryCount}/${MAX_RETRIES})...`);
+        return api(config);
     }
 
     return Promise.reject(error);
