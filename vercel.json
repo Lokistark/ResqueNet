@@ -1,33 +1,30 @@
 {
     "version": 2,
+    "builds": [
+        {
+            "src": "server/index.js",
+            "use": "@vercel/node"
+        },
+        {
+            "src": "client/package.json",
+            "use": "@vercel/static-build",
+            "config": {
+                "distDir": "dist"
+            }
+        }
+    ],
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "/api/index.js"
+            "destination": "server/index.js"
         },
         {
             "source": "/socket.io/(.*)",
-            "destination": "/api/index.js"
-        },
-        {
-            "source": "/assets/(.*)",
-            "destination": "/client/dist/assets/$1"
-        },
-        {
-            "source": "/sw.js",
-            "destination": "/client/dist/sw.js"
-        },
-        {
-            "source": "/manifest.json",
-            "destination": "/client/dist/manifest.json"
-        },
-        {
-            "source": "/vite.svg",
-            "destination": "/client/dist/vite.svg"
+            "destination": "server/index.js"
         },
         {
             "source": "/((?!api|socket\\.io).*)",
-            "destination": "/client/dist/index.html"
+            "destination": "client/$1"
         }
     ]
 }

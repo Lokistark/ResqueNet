@@ -1,4 +1,4 @@
-/** Force Redeploy: 5 */
+/** Force Redeploy: 6 */
 /**
  * RESQUENET BACKEND CORE
  * ----------------------
@@ -101,7 +101,14 @@ app.use('/api/', limiter);
 /**
  * ROUTE HANDLERS
  */
-// Ensure paths match exactly as sent by frontend: /api/auth/login
+// Ensure paths match exactly as sent by frontend: /api/auth/**
+app.use((req, res, next) => {
+  if (req.url && req.url.includes('auth')) {
+    console.log(`[AUTH-DEBUG] ${req.method} ${req.url}`);
+  }
+  next();
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/incidents', incidentRoutes);
 
