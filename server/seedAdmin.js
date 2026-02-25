@@ -7,22 +7,27 @@ const seedAdmin = async () => {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('Connected to MongoDB for seeding...');
 
-        // Check if admin already exists
-        const adminExists = await User.findOne({ email: 'naveen04@gmail.com' });
-        if (adminExists) {
-            console.log('Admin user already exists. Enforcing Admin role and Updating credentials...');
-            adminExists.role = 'admin'; // FORCE ADMIN ROLE
-            adminExists.password = 'naveen04'; // The pre-save hook will hash this
-            await adminExists.save();
+        // Ensure naveen04@gmail.com exists as Admin
+        const admin1 = await User.findOne({ email: 'naveen04@gmail.com' });
+        if (admin1) {
+            admin1.role = 'admin';
+            admin1.password = 'naveen04';
+            await admin1.save();
         } else {
-            await User.create({
-                name: 'Naveen',
-                email: 'naveen04@gmail.com',
-                password: 'naveen04',
-                role: 'admin'
-            });
-            console.log('Admin user created successfully!');
+            await User.create({ name: 'Naveen Admin', email: 'naveen04@gmail.com', password: 'naveen04', role: 'admin' });
         }
+
+        // Ensure naveen@gmail.com exists as Admin
+        const admin2 = await User.findOne({ email: 'naveen@gmail.com' });
+        if (admin2) {
+            admin2.role = 'admin';
+            admin2.password = 'naveen04';
+            await admin2.save();
+        } else {
+            await User.create({ name: 'Naveen Primary', email: 'naveen@gmail.com', password: 'naveen04', role: 'admin' });
+        }
+
+        console.log('✅ Admin users updated/created successfully!');
 
         mongoose.connection.close();
         process.exit(0);
