@@ -3,14 +3,14 @@ import { Shield, LogOut, PlusCircle, List, AlertCircle, CheckCircle, Clock, Tras
 import { logout, getIncidents, getMyIncidents, updateIncidentStatus, reportIncident, deleteIncident, getUserCount, getAllUsers, deleteUserAccount } from '../services/api';
 import IncidentForm from '../components/IncidentForm';
 import StatusIndicator from '../components/StatusIndicator';
-import { getLocalReports } from '../services/db';
+import { getLocalReports, deleteLocalReport } from '../services/db';
 import { io } from 'socket.io-client';
 
 // Determine Socket Endpoint based on environment
 const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
 const SOCKET_URL = (apiUrl.startsWith('http'))
     ? apiUrl.replace('/api', '')
-    : (import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin);
+    : (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5000` : window.location.origin);
 
 const Dashboard = ({ user, setUser }) => {
     // --- STATE MANAGEMENT ---
@@ -189,12 +189,20 @@ const Dashboard = ({ user, setUser }) => {
 
         try {
             if (targetType === 'incident') {
-                await deleteIncident(targetId);
+                if (targetId.toString().startsWith('local-')) {
+                    // Extract the numeric ID and delete from IndexedDB
+                    const localId = parseInt(targetId.toString().replace('local-', ''));
+                    await deleteLocalReport(localId);
+                    console.log('🗑️ OFFLINE: Local report redacted');
+                } else {
+                    await deleteIncident(targetId);
+                }
             } else {
                 await deleteUserAccount(targetId);
             }
             setDeleteModal({ show: false, id: null, type: 'incident' });
         } catch (err) {
+            console.error('DELETION ERROR:', err);
             alert(err.response?.data?.message || 'CRITICAL: Deletion failed. Rolling back...');
             fetchData(); // Rollback on error
         }

@@ -35,3 +35,8 @@ export const clearLocalReports = async () => {
     await tx.objectStore(STORE_NAME).clear();
     return tx.done;
 };
+
+export const deleteLocalReport = async (id) => {
+    const db = await initDB();
+    return db.delete(STORE_NAME, id);
+};
