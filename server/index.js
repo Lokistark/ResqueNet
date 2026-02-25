@@ -14,12 +14,33 @@ const helmet = require('helmet'); // Protects against well-known web vulnerabili
 const rateLimit = require('express-rate-limit'); // Mitigates Brute-force and DDoS attacks
 const cookieParser = require('cookie-parser'); // Parses cookies for secure JWT handling
 const mongoSanitize = require('mongo-sanitize'); // Prevents NoSQL Injection attacks
+const http = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config(); // Load environment variables from .env file
 
 const authRoutes = require('./routes/authRoutes');
 const incidentRoutes = require('./routes/incidentRoutes');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // For development flexibility
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+    credentials: true
+  }
+});
+
+// Attach socket.io to the app instance for access in controllers
+app.set('socketio', io);
+
+io.on('connection', (socket) => {
+  console.log('📡 REAL-TIME: User Connected ->', socket.id);
+
+  socket.on('disconnect', () => {
+    console.log('📡 REAL-TIME: User Disconnected ->', socket.id);
+  });
+});
 
 /**
  * SECURITY LAYER - MIDDLEWARE CONFIGURATION
@@ -60,7 +81,7 @@ app.use((req, res, next) => {
  */
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 Minute window
-  max: 100 // Limit each IP to 100 requests per window
+  max: process.env.NODE_ENV === 'development' ? 10000 : 100 // Increase limit significantly in development
 });
 app.use('/api/', limiter);
 
@@ -168,9 +189,10 @@ app.use((err, req, res, next) => {
  */
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`🚀 ResqueNet API Node is live on port ${PORT}`);
     console.log(`🔒 Security Layers: Helmet, RateLimit, Sanitize, JWT-Cookies ACTIVE`);
+    console.log(`📡 WebSocket Engine: Socket.io INITIALIZED`);
   });
 }
 

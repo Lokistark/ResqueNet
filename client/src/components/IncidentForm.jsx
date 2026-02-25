@@ -39,15 +39,16 @@ const IncidentForm = ({ onSuccess, isOnline }) => {
                 setMessage('REPORT TRANSMITTED SUCCESSFULLY');
                 setTimeout(onSuccess, 1500);
             } catch (err) {
-                setMessage('NETWORK TIMEOUT: SAVING LOCALLY...');
-                await saveReportLocally(sanitizedData);
+                // If network fails during transmit, queue it
+                setMessage('SYNC QUEUED: CONNECTION UNSTABLE');
+                await saveReportLocally({ ...sanitizedData, createdAt: new Date().toISOString() });
                 registerSync();
                 setTimeout(onSuccess, 1500);
             }
         } else {
             // Offline mode: Store in browser DB until connection returns
-            await saveReportLocally(sanitizedData);
-            setMessage('OFFLINE MODE: REPORT QUEUED FOR SYNC');
+            await saveReportLocally({ ...sanitizedData, createdAt: new Date().toISOString() });
+            setMessage('OFFLINE MODE: REPORT QUEUED FOR DISPATCH');
             registerSync();
             setTimeout(onSuccess, 2000);
         }

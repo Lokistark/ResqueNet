@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { login, reportPublicSOS } from '../services/api';
+import { saveReportLocally } from '../services/db';
 import { Shield, Key, Mail, AlertCircle, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -21,7 +22,13 @@ const Login = ({ setUser }) => {
             const res = await login({ email, password });
             setUser(res.data.data.user); // Pass user data to global state
         } catch (err) {
-            setError(err.response?.data?.message || 'CRITICAL: Authentication failed.');
+            let errorMsg = err.response?.data?.message || 'CRITICAL: Authentication failed.';
+
+            if (!navigator.onLine || !err.response) {
+                errorMsg = 'NETWORK OFFLINE: Please check your internet connection to log in.';
+            }
+
+            setError(errorMsg);
         }
     };
 
@@ -55,7 +62,36 @@ const Login = ({ setUser }) => {
             setSosSuccess(true);
             setTimeout(() => setSosSuccess(false), 5000);
         } catch (err) {
-            alert("EMERGENCY SIGNAL FAILURE: " + (err.code === 1 ? "Permission Denied" : "Signal Timeout"));
+            // Check if it's a network error or SW offline signal (503)
+            const isOffline = !navigator.onLine ||
+                err.message === 'Network Error' ||
+                !err.response ||
+                err.response.status === 503;
+
+            if (isOffline) {
+                console.log("PUBLIC SOS: Network failure or Offline state. Queuing...");
+                try {
+                    await saveReportLocally({
+                        title: "ANONYMOUS SOS",
+                        type: "Other",
+                        location: "GPS Detection Pending",
+                        description: "CRITICAL: Urgent help requested via Public SOS.",
+                        isPublic: true
+                    });
+
+                    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+                        const registration = await navigator.serviceWorker.ready;
+                        await registration.sync.register('sync-reports');
+                    }
+
+                    setSosSuccess(true);
+                    setTimeout(() => setSosSuccess(false), 5000);
+                } catch (dbErr) {
+                    alert("EMERGENCY FAILURE: Signal could not be queued offline.");
+                }
+            } else {
+                alert("EMERGENCY SIGNAL FAILURE: " + (err.response?.data?.message || "Signal Timeout"));
+            }
         } finally {
             setSosLoading(false);
         }

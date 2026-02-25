@@ -3,6 +3,13 @@ import { Shield, LogOut, PlusCircle, List, AlertCircle, CheckCircle, Clock, Tras
 import { logout, getIncidents, getMyIncidents, updateIncidentStatus, reportIncident, deleteIncident, getUserCount, getAllUsers, deleteUserAccount } from '../services/api';
 import IncidentForm from '../components/IncidentForm';
 import StatusIndicator from '../components/StatusIndicator';
+import { getLocalReports } from '../services/db';
+import { io } from 'socket.io-client';
+
+// Determine Socket Endpoint based on environment
+const SOCKET_URL = import.meta.env.VITE_API_BASE_URL
+    ? import.meta.env.VITE_API_BASE_URL.replace('/api', '')
+    : (import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin);
 
 const Dashboard = ({ user, setUser }) => {
     // --- STATE MANAGEMENT ---
@@ -30,9 +37,41 @@ const Dashboard = ({ user, setUser }) => {
 
         fetchData(); // Load initial data from server
 
+        // --- REAL-TIME SOCKET INTEGRATION ---
+        const socket = io(SOCKET_URL, {
+            withCredentials: true,
+            transports: ['websocket', 'polling']
+        });
+
+        // Event: New incident reported by ANY user
+        socket.on('new_incident', (newIncident) => {
+            console.log('📡 REAL-TIME: New Incident Received', newIncident);
+            setIncidents(prev => {
+                // Check if we already have this incident (e.g. from optimistic update)
+                const exists = prev.find(inc => inc._id === newIncident._id || inc._id === `local-${newIncident.id}`);
+                if (exists) return prev;
+                return [newIncident, ...prev];
+            });
+        });
+
+        // Event: Incident status updated by admin
+        socket.on('incident_updated', (updatedIncident) => {
+            console.log('📡 REAL-TIME: Incident Updated', updatedIncident);
+            setIncidents(prev => prev.map(inc =>
+                inc._id === updatedIncident._id ? updatedIncident : inc
+            ));
+        });
+
+        // Event: Incident deleted
+        socket.on('incident_deleted', (deletedId) => {
+            console.log('📡 REAL-TIME: Incident Deleted', deletedId);
+            setIncidents(prev => prev.filter(inc => inc._id !== deletedId));
+        });
+
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
+            socket.disconnect(); // Cleanup connection on unmount
         };
     }, [user.role]);
 
@@ -42,8 +81,29 @@ const Dashboard = ({ user, setUser }) => {
      */
     const fetchData = async () => {
         try {
+            // Fetch live data from server
             const res = user.role === 'admin' ? await getIncidents() : await getMyIncidents();
-            setIncidents(res.data.data.incidents);
+            let liveIncidents = res.data.data.incidents;
+
+            // Fetch pending data from local IndexedDB (Offline-First)
+            const localIncidents = await getLocalReports();
+
+            // Map local incidents to look like server incidents for the UI
+            const formattedLocal = localIncidents.map(inc => ({
+                ...inc,
+                _id: `local-${inc.id}`,
+                status: 'Queued (Offline)',
+                createdAt: inc.createdAt || new Date().toISOString(),
+                reporter: user.name,
+                isLocal: true
+            }));
+
+            // Combine and sort by date (newest first)
+            const combined = [...formattedLocal, ...liveIncidents].sort((a, b) =>
+                new Date(b.createdAt) - new Date(a.createdAt)
+            );
+
+            setIncidents(combined);
 
             // Fetch extra metrics if user is an administrator
             if (user.role === 'admin') {
@@ -55,6 +115,14 @@ const Dashboard = ({ user, setUser }) => {
             }
         } catch (err) {
             console.error('SERVER FETCH ERROR:', err);
+            // Fallback to local only if server is unreachable
+            const localIncidents = await getLocalReports();
+            setIncidents(localIncidents.map(inc => ({
+                ...inc,
+                _id: `local-${inc.id}`,
+                status: 'Queued (Offline)',
+                isLocal: true
+            })));
         }
     };
 
@@ -164,9 +232,45 @@ const Dashboard = ({ user, setUser }) => {
             setSosSuccess(true);
             setTimeout(() => setSosSuccess(false), 5000);
         } catch (err) {
-            // Rollback optimistic update if the entire process fails (Network error)
-            setIncidents(prev => prev.filter(inc => inc._id !== tempId));
-            alert("EMERGENCY FAILURE: Check Internet Connection");
+            // ROLLBACK OPTIMISTIC UPDATE ON GENERIC ERROR (Unless it's just connectivity)
+            if (err.response?.status === 401 || err.response?.status === 400) {
+                setIncidents(prev => prev.filter(inc => inc._id !== tempId));
+                alert("EMERGENCY FAILURE: Authentication or Data Error");
+            } else {
+                // NETWORK FAILURE or 503 (Offline): Queuing for background sync
+                const isOfflineError = !navigator.onLine ||
+                    err.message === 'Network Error' ||
+                    !err.response ||
+                    err.response.status === 503;
+
+                if (isOfflineError) {
+                    console.log("SOS: Network failure/Offline detected. Queuing...");
+                    try {
+                        await saveReportLocally({
+                            title: "SOS EMERGENCY",
+                            type: "Other",
+                            location: optimisticReport.location === "Detecting GPS..." ? "GPS_PENDING" : optimisticReport.location,
+                            description: "CRITICAL: Urgent help requested via SOS button.",
+                            createdAt: new Date().toISOString()
+                        });
+
+                        if ('serviceWorker' in navigator && 'SyncManager' in window) {
+                            const registration = await navigator.serviceWorker.ready;
+                            await registration.sync.register('sync-reports');
+                        }
+
+                        setSosSuccess(true); // Treat as success (queued)
+                        setTimeout(() => setSosSuccess(false), 5000);
+                    } catch (dbErr) {
+                        console.error("SOS: Failed to save locally", dbErr);
+                        setIncidents(prev => prev.filter(inc => inc._id !== tempId));
+                        alert("EMERGENCY FAILURE: Signal could not be queued offline.");
+                    }
+                } else {
+                    setIncidents(prev => prev.filter(inc => inc._id !== tempId));
+                    alert("EMERGENCY FAILURE: Server error or Timeout");
+                }
+            }
         } finally {
             setSosLoading(false);
             fetchIncidents(); // Sync with real server data
@@ -347,6 +451,7 @@ const Dashboard = ({ user, setUser }) => {
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[9px] font-black uppercase text-gray-400 tracking-[0.3em]">REF: {incident._id.slice(-8)}</span>
                                                     {incident.isOptimistic && <span className="animate-pulse text-emergency-red font-black text-[9px] uppercase tracking-widest">[SENDING...]</span>}
+                                                    {incident.isLocal && <span className="text-orange-500 font-black text-[9px] uppercase tracking-widest">[QUEUED OFFLINE]</span>}
                                                 </div>
                                             </div>
 

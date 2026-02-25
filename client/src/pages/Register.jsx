@@ -21,6 +21,11 @@ const Register = ({ setUser }) => {
         } catch (err) {
             let errorMsg = err.response?.data?.message || 'CRITICAL: Registration procedure failed.';
 
+            // Check if the error is due to being offline
+            if (!navigator.onLine || !err.response) {
+                errorMsg = 'NETWORK OFFLINE: Please check your internet connection to create an account.';
+            }
+
             // Helpful message for duplicate accounts
             if (errorMsg.includes('E11000') || errorMsg.includes('duplicate')) {
                 errorMsg = 'This email is already registered. Please Login!';

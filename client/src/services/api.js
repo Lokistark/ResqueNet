@@ -1,30 +1,39 @@
 import axios from 'axios';
 
 const api = axios.create({
-    // Fallback to the live Vercel backend if Env Var is missing (Crucial for Vercel)
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'https://resque-net.vercel.app/api',
+    // In production/Vercel, use absolute URL. In local dev, relative is safer for SW sync.
+    baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api'),
     withCredentials: true,
-    timeout: 30000 // 30s timeout (wait for Vercel cold start)
+    timeout: 30000 // 30s timeout
 });
 
-// Automatic Retry for Vercel Cold Starts / Atlas Wakeups
+// Automatic Retry for Vercel Cold Starts / Low Network
 api.interceptors.response.use(null, async (error) => {
     const { config, response } = error;
 
-    // Initialize retry count if it doesn't exist
+    // Fast-fail for explicit offline conditions to avoid 14s retry delay
+    const isExplicitlyOffline = !navigator.onLine ||
+        (response && response.status === 503 && response.headers && response.headers['x-resquenet-offline'] === 'true');
+
+    if (isExplicitlyOffline) {
+        return Promise.reject(error);
+    }
+
+    // Initialize retry count
     config.retryCount = config.retryCount || 0;
-    const MAX_RETRIES = 5;
+    const MAX_RETRIES = 3;
 
     // Retry if: 
     // 1. It's a 503 error (Database connecting)
-    // 2. It's a 504/408/Network error (Vercel Cold Start)
+    // 2. It's a network error (no response)
+    // 3. It's a 408 Timeout
     if (config && config.retryCount < MAX_RETRIES &&
-        (!response || response.status === 503 || response.status === 504 || response.status === 408)) {
+        (!response || response.status === 503 || response.status === 408)) {
 
         config.retryCount += 1;
-        const delay = Math.pow(2, config.retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s...
+        const delay = Math.pow(2, config.retryCount) * 1000;
 
-        console.log(`Retrying request (${config.retryCount}/${MAX_RETRIES}) in ${delay}ms...`);
+        console.log(`API: Retrying (${config.retryCount}/${MAX_RETRIES}) in ${delay}ms...`);
 
         return new Promise(resolve => setTimeout(() => resolve(api(config)), delay));
     }
