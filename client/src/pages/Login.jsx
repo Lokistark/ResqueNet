@@ -9,6 +9,7 @@ const Login = ({ setUser }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState(''); // Stores login failure messages
+    const [loading, setLoading] = useState(false);
     const [sosLoading, setSosLoading] = useState(false);
     const [sosSuccess, setSosSuccess] = useState(false);
 
@@ -18,6 +19,8 @@ const Login = ({ setUser }) => {
      */
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError('');
         try {
             const res = await login({ email, password });
             setUser(res.data.data.user); // Pass user data to global state
@@ -29,6 +32,8 @@ const Login = ({ setUser }) => {
             }
 
             setError(errorMsg);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -155,8 +160,11 @@ const Login = ({ setUser }) => {
                         />
                     </div>
 
-                    <button className="w-full bg-emergency-red text-white p-4 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs shadow-xl hover:bg-emergency-dark transform hover:-translate-y-1 active:scale-95 transition-all uppercase tracking-[0.2em] mt-1 sm:mt-2">
-                        AUTHENTICATE
+                    <button
+                        disabled={loading}
+                        className="w-full bg-emergency-red text-white p-4 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs shadow-xl hover:bg-emergency-dark transform hover:-translate-y-1 active:scale-95 transition-all uppercase tracking-[0.2em] mt-1 sm:mt-2 disabled:opacity-50"
+                    >
+                        {loading ? 'AUTHENTICATING...' : 'AUTHENTICATE'}
                     </button>
                 </form>
 

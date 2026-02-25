@@ -25,6 +25,8 @@ const Dashboard = ({ user, setUser }) => {
     const [sosLoading, setSosLoading] = useState(false);
     const [sosSuccess, setSosSuccess] = useState(false);
     const [statusUpdateSuccess, setStatusUpdateSuccess] = useState(false);
+    const [socketConnected, setSocketConnected] = useState(false);
+    const [realTimeEventToast, setRealTimeEventToast] = useState({ show: false, message: '' });
     const [deleteModal, setDeleteModal] = useState({ show: false, id: null, type: 'incident' });
 
     // --- INITIALIZATION & SYNC ---
@@ -44,9 +46,23 @@ const Dashboard = ({ user, setUser }) => {
             transports: ['websocket', 'polling']
         });
 
+        socket.on('connect', () => {
+            console.log('📡 SOCKET: Connected to Server');
+            setSocketConnected(true);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('📡 SOCKET: Disconnected');
+            setSocketConnected(false);
+        });
+
         // Event: New incident reported by ANY user
         socket.on('new_incident', (newIncident) => {
             console.log('📡 REAL-TIME: New Incident Received', newIncident);
+
+            // Visual feedback for real-time receipt
+            setRealTimeEventToast({ show: true, message: 'NEW INCIDENT BROADCAST RECEIVED' });
+            setTimeout(() => setRealTimeEventToast({ show: false, message: '' }), 3000);
 
             // SECURITY FILTER: Citizens should only see their own reports in real-time
             // Admins see everything.
@@ -71,6 +87,9 @@ const Dashboard = ({ user, setUser }) => {
         // Event: Incident status updated by admin
         socket.on('incident_updated', (updatedIncident) => {
             console.log('📡 REAL-TIME: Incident Updated', updatedIncident);
+
+            setRealTimeEventToast({ show: true, message: 'INCIDENT STATUS SYNCED' });
+            setTimeout(() => setRealTimeEventToast({ show: false, message: '' }), 3000);
             setIncidents(prev => prev.map(inc =>
                 inc._id === updatedIncident._id ? updatedIncident : inc
             ));
@@ -79,6 +98,9 @@ const Dashboard = ({ user, setUser }) => {
         // Event: Incident deleted
         socket.on('incident_deleted', (deletedId) => {
             console.log('📡 REAL-TIME: Incident Deleted', deletedId);
+
+            setRealTimeEventToast({ show: true, message: 'REDACTION SYNCED ACROSS NETWORK' });
+            setTimeout(() => setRealTimeEventToast({ show: false, message: '' }), 3000);
             setIncidents(prev => prev.filter(inc => inc._id !== deletedId));
         });
 
@@ -269,6 +291,7 @@ const Dashboard = ({ user, setUser }) => {
 
             await reportIncident(sosData);
             setSosSuccess(true);
+            fetchData(); // Backup refresh in case socket is slow
             setTimeout(() => setSosSuccess(false), 5000);
         } catch (err) {
             // ROLLBACK OPTIMISTIC UPDATE ON GENERIC ERROR (Unless it's just connectivity)
@@ -372,6 +395,16 @@ const Dashboard = ({ user, setUser }) => {
                 </div>
             )}
 
+            {/* Real-time Events Notification */}
+            {realTimeEventToast.show && (
+                <div className="fixed top-8 left-1/2 transform -translate-x-1/2 z-[60] w-[90%] max-w-md">
+                    <div className="bg-black text-white p-5 rounded-[2rem] shadow-2xl flex items-center justify-center gap-4 border-2 border-emergency-red animate-bounce-slow">
+                        <Clock size={24} className="text-emergency-red animate-pulse" />
+                        <span className="font-black text-[10px] sm:text-xs tracking-[0.2em] uppercase">{realTimeEventToast.message}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Status Feedback Notification */}
             {statusUpdateSuccess && (
                 <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 w-[90%] max-w-sm">
@@ -394,7 +427,7 @@ const Dashboard = ({ user, setUser }) => {
                     </p>
                 </div>
                 <div className="flex items-center gap-5 bg-gray-50 p-3 px-5 rounded-2xl border border-gray-100 w-full sm:w-auto justify-between">
-                    <StatusIndicator isOnline={isOnline} />
+                    <StatusIndicator isOnline={isOnline} socketConnected={socketConnected} />
                     <button
                         onClick={handleLogout}
                         className="p-2 text-gray-300 hover:text-emergency-red transition-all transform hover:scale-110 active:scale-90"

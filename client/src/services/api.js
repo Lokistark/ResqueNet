@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
     // In production/Vercel, use absolute URL. In local dev, relative is safer for SW sync.
-    baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api'),
+    baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5000/api` : '/api'),
     withCredentials: true,
     timeout: 30000 // 30s timeout
 });
@@ -21,7 +21,7 @@ api.interceptors.response.use(null, async (error) => {
 
     // Initialize retry count
     config.retryCount = config.retryCount || 0;
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = 2; // Reduced from 3
 
     // Retry if: 
     // 1. It's a 503 error (Database connecting)
@@ -31,9 +31,9 @@ api.interceptors.response.use(null, async (error) => {
         (!response || response.status === 503 || response.status === 408)) {
 
         config.retryCount += 1;
-        const delay = Math.pow(2, config.retryCount) * 1000;
+        const delay = 1000; // Constant 1s delay instead of exponential
 
-        console.log(`API: Retrying (${config.retryCount}/${MAX_RETRIES}) in ${delay}ms...`);
+        console.log(`API: Fast Retry (${config.retryCount}/${MAX_RETRIES}) for ${config.url}...`);
 
         return new Promise(resolve => setTimeout(() => resolve(api(config)), delay));
     }

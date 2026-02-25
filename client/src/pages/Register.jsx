@@ -7,6 +7,7 @@ const Register = ({ setUser }) => {
     // --- STATE MANAGEMENT ---
     const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'citizen' });
     const [error, setError] = useState(''); // Stores registration error messages
+    const [loading, setLoading] = useState(false);
 
     /**
      * Account Creation Handler
@@ -15,6 +16,8 @@ const Register = ({ setUser }) => {
      */
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError('');
         try {
             const res = await register(formData);
             setUser(res.data.data.user); // Auto-login user after successful registration
@@ -32,6 +35,8 @@ const Register = ({ setUser }) => {
             }
 
             setError(errorMsg);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -93,8 +98,11 @@ const Register = ({ setUser }) => {
 
                     {/* Role selection is hardcoded to 'citizen' in the backend for security. */}
 
-                    <button className="w-full bg-emergency-red text-white p-4 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs shadow-xl hover:bg-emergency-dark transform hover:-translate-y-1 active:scale-95 transition-all uppercase tracking-[0.2em] mt-1 sm:mt-2">
-                        CREATE ACCOUNT
+                    <button
+                        disabled={loading}
+                        className="w-full bg-emergency-red text-white p-4 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs shadow-xl hover:bg-emergency-dark transform hover:-translate-y-1 active:scale-95 transition-all uppercase tracking-[0.2em] mt-1 sm:mt-2 disabled:opacity-50"
+                    >
+                        {loading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}
                     </button>
                 </form>
 

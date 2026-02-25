@@ -16,7 +16,7 @@ exports.createIncident = async (req, res) => {
         // EMIT REAL-TIME EVENT
         const io = req.app.get('socketio');
         if (io) {
-            io.emit('new_incident', newIncident);
+            io.emit('new_incident', newIncident.toObject());
             console.log('📡 SOCKET: Broadcast -> new_incident');
         }
 
