@@ -5,6 +5,9 @@
     "engines": {
         "node": ">=18.x"
     },
+    "scripts": {
+        "build": "cd client && npm install && npm run build"
+    },
     "dependencies": {
         "bcryptjs": "^3.0.3",
         "cookie-parser": "^1.4.7",
