@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { login, reportPublicSOS } from '../services/api';
-import { saveReportLocally } from '../services/db';
+import { queueAction } from '../services/db';
 import { Shield, Key, Mail, AlertCircle, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -76,14 +76,16 @@ const Login = ({ setUser }) => {
             if (isOffline) {
                 console.log("PUBLIC SOS: Network failure or Offline state. Queuing...");
                 try {
-                    await saveReportLocally({
+                    await queueAction('CREATE', {
                         title: "ANONYMOUS SOS",
                         type: "Other",
                         location: "GPS Detection Pending",
                         description: "CRITICAL: Urgent help requested via Public SOS.",
-                        isPublic: true
+                        isPublic: true,
+                        createdAt: new Date().toISOString()
                     });
 
+                    // Background Sync call
                     if ('serviceWorker' in navigator && 'SyncManager' in window) {
                         const registration = await navigator.serviceWorker.ready;
                         await registration.sync.register('sync-reports');

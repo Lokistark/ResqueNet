@@ -10,7 +10,8 @@ const seedAdmin = async () => {
         // Check if admin already exists
         const adminExists = await User.findOne({ email: 'naveen04@gmail.com' });
         if (adminExists) {
-            console.log('Admin user already exists. Updating credentials...');
+            console.log('Admin user already exists. Enforcing Admin role and Updating credentials...');
+            adminExists.role = 'admin'; // FORCE ADMIN ROLE
             adminExists.password = 'naveen04'; // The pre-save hook will hash this
             await adminExists.save();
         } else {

@@ -1,42 +1,58 @@
 import { openDB } from 'idb';
 
 const DB_NAME = 'ResqueNetDB';
-const STORE_NAME = 'pendingReports';
+const STORE_NAME = 'pendingActions';
 
-/**
- * INITIALIZE OFFLINE DATABASE
- * Creates a local IndexedDB instance to store reports when internet is unavailable.
- * This is the backbone of our "Offline-First" strategy.
- */
+console.log('📡 DB_SERVICE: Initializing IndexedDB Module');
+
 export const initDB = async () => {
-    return openDB(DB_NAME, 1, {
-        upgrade(db) {
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                // We use an auto-incrementing key to handle multiple local reports
+    return openDB(DB_NAME, 2, {
+        upgrade(db, oldVersion) {
+            if (oldVersion < 2) {
+                if (db.objectStoreNames.contains('pendingReports')) {
+                    db.deleteObjectStore('pendingReports');
+                }
                 db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
             }
         },
     });
 };
 
-export const saveReportLocally = async (report) => {
+/**
+ * Queue an action (CREATE, UPDATE, DELETE) for background sync
+ */
+export const queueAction = async (type, payload) => {
+    console.log(`📡 DB_SERVICE: Queuing ${type} action`, payload);
     const db = await initDB();
-    return db.add(STORE_NAME, report);
+    return db.add(STORE_NAME, {
+        type,
+        payload,
+        createdAt: new Date().toISOString()
+    });
 };
 
-export const getLocalReports = async () => {
+export const getPendingActions = async () => {
     const db = await initDB();
     return db.getAll(STORE_NAME);
 };
 
-export const clearLocalReports = async () => {
+export const deletePendingAction = async (id) => {
     const db = await initDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    await tx.objectStore(STORE_NAME).clear();
-    return tx.done;
+    return db.delete(STORE_NAME, id);
+};
+
+export const updatePendingAction = async (id, data) => {
+    const db = await initDB();
+    return db.put(STORE_NAME, data);
+};
+
+export const getLocalReports = async () => {
+    const actions = await getPendingActions();
+    return actions
+        .filter(a => a.type === 'CREATE')
+        .map(a => ({ ...a.payload, id: a.id }));
 };
 
 export const deleteLocalReport = async (id) => {
-    const db = await initDB();
-    return db.delete(STORE_NAME, id);
+    return deletePendingAction(id);
 };

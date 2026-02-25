@@ -36,6 +36,18 @@ exports.register = async (req, res) => {
             password: req.body.password,
             role: 'citizen' // Public registration strictly limited to citizens
         });
+
+        // EMIT REAL-TIME EVENT
+        const io = req.app.get('socketio');
+        if (io) {
+            io.emit('user_registered', {
+                _id: newUser._id,
+                name: newUser.name,
+                email: newUser.email,
+                role: 'citizen'
+            });
+        }
+
         sendToken(newUser, 201, res);
     } catch (err) {
         if (err.code === 11000) {
@@ -151,6 +163,13 @@ exports.deleteUser = async (req, res) => {
         }
 
         await User.findByIdAndDelete(req.params.id);
+
+        // EMIT REAL-TIME EVENT
+        const io = req.app.get('socketio');
+        if (io) {
+            io.emit('user_deleted', req.params.id);
+        }
+
         res.status(204).json({ status: 'success', data: null });
     } catch (err) {
         res.status(400).json({ status: 'fail', message: err.message });

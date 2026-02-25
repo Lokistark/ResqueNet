@@ -1,4 +1,4 @@
-const CACHE_NAME = 'resquenet-v2'; // Bump version for update
+const CACHE_NAME = 'resquenet-v3';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
@@ -62,15 +62,16 @@ self.addEventListener('fetch', (event) => {
             })
         );
     } else {
-        // UI Assets: Try cache first, then network
+        // UI Assets: Stale-While-Revalidate (Fast UI, but updates on next load)
         event.respondWith(
-            caches.match(request).then((response) => {
-                return response || fetch(request).then((networkResponse) => {
+            caches.match(request).then((cachedResponse) => {
+                const fetchPromise = fetch(request).then((networkResponse) => {
                     return caches.open(CACHE_NAME).then((cache) => {
                         cache.put(request, networkResponse.clone());
                         return networkResponse;
                     });
                 });
+                return cachedResponse || fetchPromise;
             })
         );
     }
@@ -78,58 +79,69 @@ self.addEventListener('fetch', (event) => {
 
 // SYNC: Background Data Synchronization
 self.addEventListener('sync', (event) => {
-    if (event.tag === 'sync-reports') {
-        console.log('SW: Sync Triggered - Dispatching Pending Reports');
-        event.waitUntil(syncReports());
+    if (event.tag === 'sync-reports') { // Keeping the tag same for compatibility
+        console.log('SW: Sync Triggered - Dispatching Pending Actions');
+        event.waitUntil(syncActions());
     }
 });
 
-async function syncReports() {
+async function syncActions() {
     return new Promise((resolve, reject) => {
-        const dbRequest = indexedDB.open('ResqueNetDB', 1);
+        const dbRequest = indexedDB.open('ResqueNetDB', 2); // Use version 2
 
         dbRequest.onerror = (err) => reject(err);
 
         dbRequest.onsuccess = (event) => {
             const db = event.target.result;
-            if (!db.objectStoreNames.contains('pendingReports')) return resolve();
+            if (!db.objectStoreNames.contains('pendingActions')) return resolve();
 
-            const transaction = db.transaction('pendingReports', 'readwrite');
-            const store = transaction.objectStore('pendingReports');
+            const transaction = db.transaction('pendingActions', 'readwrite');
+            const store = transaction.objectStore('pendingActions');
             const getAllRequest = store.getAll();
 
             getAllRequest.onsuccess = async () => {
-                const reports = getAllRequest.result;
-                if (reports.length === 0) return resolve();
+                const actions = getAllRequest.result;
+                if (actions.length === 0) return resolve();
 
-                console.log(`SW: Found ${reports.length} pending reports. Syncing...`);
+                console.log(`SW: Found ${actions.length} pending actions. Syncing...`);
 
-                const backendUrl = ''; // Use relative paths for proxy support
+                const backendUrl = '';
 
-                for (const report of reports) {
+                for (const action of actions) {
                     try {
-                        // Determine endpoint: /incidents (standard) or /incidents/public-sos (anonymous)
-                        const endpoint = report.isPublic ? '/api/incidents/public-sos' : '/api/incidents';
+                        let response;
+                        const { type, payload } = action;
 
-                        const response = await fetch(`${backendUrl}${endpoint}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                title: report.title,
-                                type: report.type,
-                                location: report.location,
-                                description: report.description
-                            }),
-                            credentials: 'include'
-                        });
+                        if (type === 'CREATE') {
+                            const endpoint = payload.isPublic ? '/api/incidents/public-sos' : '/api/incidents';
+                            response = await fetch(`${backendUrl}${endpoint}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload),
+                                credentials: 'include'
+                            });
+                        } else if (type === 'DELETE') {
+                            response = await fetch(`${backendUrl}/api/incidents/${payload.id}`, {
+                                method: 'DELETE',
+                                credentials: 'include'
+                            });
+                        } else if (type === 'UPDATE') {
+                            response = await fetch(`${backendUrl}/api/incidents/${payload.id}/status`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: payload.status }),
+                                credentials: 'include'
+                            });
+                        }
 
-                        if (response.ok) {
-                            console.log(`SW: ${report.isPublic ? 'Public' : 'Standard'} Report ${report.id} synced.`);
-                            const delTx = db.transaction('pendingReports', 'readwrite');
-                            delTx.objectStore('pendingReports').delete(report.id);
+                        if (response && (response.ok || response.status === 404)) {
+                            // 404 is treated as success for sync (item already gone)
+                            console.log(`SW: Action ${action.id} (${type}) synced.`);
+                            const delTx = db.transaction('pendingActions', 'readwrite');
+                            delTx.objectStore('pendingActions').delete(action.id);
                         }
                     } catch (err) {
-                        console.error(`SW: Sync failed for report ${report.id}`, err);
+                        console.error(`SW: Sync failed for action ${action.id}`, err);
                     }
                 }
                 resolve();

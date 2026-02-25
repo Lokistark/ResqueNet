@@ -83,7 +83,7 @@ exports.updateIncidentStatus = async (req, res) => {
         // EMIT REAL-TIME EVENT
         const io = req.app.get('socketio');
         if (io) {
-            io.emit('incident_updated', incident);
+            io.emit('incident_updated', incident.toObject());
             console.log('📡 SOCKET: Broadcast -> incident_updated', incident._id);
         }
 

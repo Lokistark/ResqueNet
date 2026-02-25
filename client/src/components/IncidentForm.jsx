@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { reportIncident } from '../services/api';
-import { saveReportLocally } from '../services/db';
+import { queueAction } from '../services/db';
 import { MapPin, AlertTriangle, FileText, User } from 'lucide-react';
 import DOMPurify from 'dompurify';
 
-const IncidentForm = ({ onSuccess, isOnline, user, setIncidents }) => {
+const IncidentForm = ({ onSuccess, isOnline, user, setIncidents, triggerError }) => {
     // --- STATE MANAGEMENT ---
     const [formData, setFormData] = useState({
         title: '',
@@ -49,15 +49,13 @@ const IncidentForm = ({ onSuccess, isOnline, user, setIncidents }) => {
         if (isOnline) {
             try {
                 await reportIncident(sanitizedData);
-                // The socket message 'new_incident' will handle replacing the optimistic one
             } catch (err) {
-                // If it really fails (not just offline), roll back or mark as local
                 console.error("REPORT FAIL:", err);
-                await saveReportLocally({ ...sanitizedData, createdAt: new Date().toISOString() });
+                await queueAction('CREATE', { ...sanitizedData, createdAt: new Date().toISOString() });
                 registerSync();
             }
         } else {
-            await saveReportLocally({ ...sanitizedData, createdAt: new Date().toISOString() });
+            await queueAction('CREATE', { ...sanitizedData, createdAt: new Date().toISOString() });
             registerSync();
         }
         setLoading(false);
@@ -86,7 +84,7 @@ const IncidentForm = ({ onSuccess, isOnline, user, setIncidents }) => {
                     location: `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`
                 });
             }, (err) => {
-                alert("GPS ACQUISITION FAILED. Please specify location manually.");
+                triggerError("GPS ACQUISITION FAILED. Please specify location manually.");
             });
         }
     };

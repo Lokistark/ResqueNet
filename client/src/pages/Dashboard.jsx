@@ -24,7 +24,17 @@ const Dashboard = ({ user, setUser }) => {
     const [statusUpdateSuccess, setStatusUpdateSuccess] = useState(false);
     const [socketConnected, setSocketConnected] = useState(false);
     const [realTimeEventToast, setRealTimeEventToast] = useState({ show: false, message: '' });
+    const [errorToast, setErrorToast] = useState({ show: false, message: '' });
     const [deleteModal, setDeleteModal] = useState({ show: false, id: null, type: 'incident' });
+
+    /**
+     * Global Error Handler
+     * Replaces 'localhost says' alerts with premium in-page notifications.
+     */
+    const triggerError = (msg) => {
+        setErrorToast({ show: true, message: msg.toUpperCase() });
+        setTimeout(() => setErrorToast({ show: false, message: '' }), 6000);
+    };
 
     // --- INITIALIZATION & SYNC ---
     useEffect(() => {
@@ -57,26 +67,38 @@ const Dashboard = ({ user, setUser }) => {
         socket.on('new_incident', (newIncident) => {
             console.log('📡 REAL-TIME: New Incident Received', newIncident);
 
-            // Visual feedback for real-time receipt
-            setRealTimeEventToast({ show: true, message: 'NEW INCIDENT BROADCAST RECEIVED' });
-            setTimeout(() => setRealTimeEventToast({ show: false, message: '' }), 3000);
+            // Visual feedback for real-time receipt (Only if reported by someone else)
+            const isMe = newIncident.reporter && user.name &&
+                newIncident.reporter.trim().toLowerCase() === user.name.trim().toLowerCase();
+
+            if (!isMe) {
+                setRealTimeEventToast({ show: true, message: 'NEW EMERGENCY BROADCAST RECEIVED' });
+                setTimeout(() => setRealTimeEventToast({ show: false, message: '' }), 3000);
+            }
 
             // SECURITY FILTER: Citizens should only see their own reports in real-time
-            // Admins see everything.
-            if (user.role === 'admin' || newIncident.reporter === user.name) {
+            const reporterName = newIncident.reporter?.toString().trim().toLowerCase();
+            const myName = user.name?.toString().trim().toLowerCase();
+
+            if (user.role === 'admin' || reporterName === myName) {
                 setIncidents(prev => {
                     // Check if we already have this incident (by real ID)
                     if (prev.find(inc => inc._id === newIncident._id)) return prev;
 
-                    // For citizens: Remove the temporary optimistic version of this specific report
-                    if (user.role === 'citizen') {
-                        return [newIncident, ...prev.filter(inc =>
-                            !(inc.isOptimistic && inc.title === newIncident.title)
-                        )];
-                    }
+                    // FILTER OUT OPTIMISTIC/LOCAL VERSIONS
+                    // We match by title and reporter as a proxy for the 'same' report
+                    return [newIncident, ...prev.filter(inc => {
+                        const incTitle = inc.title?.toString().trim().toLowerCase();
+                        const newTitle = newIncident.title?.toString().trim().toLowerCase();
+                        const incReporter = inc.reporter?.toString().trim().toLowerCase();
+                        const newReporter = newIncident.reporter?.toString().trim().toLowerCase();
 
-                    // For admins: Just add it to the top
-                    return [newIncident, ...prev];
+                        const isDuplicate = (inc.isOptimistic || inc.isLocal) &&
+                            incTitle === newTitle &&
+                            incReporter === newReporter;
+
+                        return !isDuplicate;
+                    })];
                 });
             }
         });
@@ -85,10 +107,13 @@ const Dashboard = ({ user, setUser }) => {
         socket.on('incident_updated', (updatedIncident) => {
             console.log('📡 REAL-TIME: Incident Updated', updatedIncident);
 
-            setRealTimeEventToast({ show: true, message: 'INCIDENT STATUS SYNCED' });
-            setTimeout(() => setRealTimeEventToast({ show: false, message: '' }), 3000);
+            // Only show sync notification if the user is NOT an admin (meaning the admin did the update)
+            if (user.role === 'citizen') {
+                setRealTimeEventToast({ show: true, message: 'INCIDENT STATUS SYNCED' });
+                setTimeout(() => setRealTimeEventToast({ show: false, message: '' }), 3000);
+            }
             setIncidents(prev => prev.map(inc =>
-                inc._id === updatedIncident._id ? updatedIncident : inc
+                inc._id.toString() === updatedIncident._id.toString() ? updatedIncident : inc
             ));
         });
 
@@ -96,9 +121,26 @@ const Dashboard = ({ user, setUser }) => {
         socket.on('incident_deleted', (deletedId) => {
             console.log('📡 REAL-TIME: Incident Deleted', deletedId);
 
-            setRealTimeEventToast({ show: true, message: 'REDACTION SYNCED ACROSS NETWORK' });
-            setTimeout(() => setRealTimeEventToast({ show: false, message: '' }), 3000);
-            setIncidents(prev => prev.filter(inc => inc._id !== deletedId));
+            // Only show if the user isn't the one who likely deleted it
+            if (user.role === 'citizen') {
+                setRealTimeEventToast({ show: true, message: 'REDACTION SYNCED' });
+                setTimeout(() => setRealTimeEventToast({ show: false, message: '' }), 3000);
+            }
+            setIncidents(prev => prev.filter(inc => inc._id.toString() !== deletedId.toString()));
+        });
+
+        // Event: New user registered
+        socket.on('user_registered', (newUser) => {
+            console.log('📡 REAL-TIME: New User Joined', newUser);
+            setUsers(prev => [newUser, ...prev]);
+            setUserCount(prev => prev + 1);
+        });
+
+        // Event: User deleted by admin
+        socket.on('user_deleted', (deletedUserId) => {
+            console.log('📡 REAL-TIME: User Revoked', deletedUserId);
+            setUsers(prev => prev.filter(u => u._id.toString() !== deletedUserId.toString()));
+            setUserCount(prev => prev - 1);
         });
 
         return () => {
@@ -114,24 +156,41 @@ const Dashboard = ({ user, setUser }) => {
      */
     const fetchData = async () => {
         try {
-            // Fetch live data from server
+            // 1. Fetch live data from server
             const res = user.role === 'admin' ? await getIncidents() : await getMyIncidents();
             let liveIncidents = res.data.data.incidents;
 
-            // Fetch pending data from local IndexedDB (Offline-First)
-            const localIncidents = await getLocalReports();
+            // 2. Fetch all pending actions from local IndexedDB
+            const { getPendingActions } = await import('../services/db');
+            const pendingActions = await getPendingActions();
 
-            // Map local incidents to look like server incidents for the UI
-            const formattedLocal = localIncidents.map(inc => ({
-                ...inc,
-                _id: `local-${inc.id}`,
-                status: 'Queued (Offline)',
-                createdAt: inc.createdAt || new Date().toISOString(),
+            // 3. Separate ACTIONS
+            const pendingCreates = pendingActions.filter(a => a.type === 'CREATE');
+            const pendingUpdates = pendingActions.filter(a => a.type === 'UPDATE');
+            const pendingDeletes = pendingActions.filter(a => a.type === 'DELETE');
+
+            // 4. APPLY PENDING DELETES (Hide items from UI)
+            const deleteIds = pendingDeletes.map(a => a.payload.id.toString());
+            liveIncidents = liveIncidents.filter(inc => !deleteIds.includes(inc._id.toString()));
+
+            // 5. APPLY PENDING UPDATES (Change status in UI)
+            liveIncidents = liveIncidents.map(inc => {
+                const update = pendingUpdates.find(u => u.payload.id.toString() === inc._id.toString());
+                return update ? { ...inc, status: update.payload.status, isQueuedStatus: true } : inc;
+            });
+
+            // 6. FORMAT PENDING CREATES
+            const formattedLocal = pendingCreates.map(action => ({
+                ...action.payload,
+                _id: `local-${action.id}`,
+                status: action.payload.status || 'Pending',
+                isQueuedStatus: true,
+                createdAt: action.payload.createdAt || action.createdAt,
                 reporter: user.name,
                 isLocal: true
             }));
 
-            // Combine and sort by date (newest first)
+            // 7. COMBINE AND SORT
             const combined = [...formattedLocal, ...liveIncidents].sort((a, b) =>
                 new Date(b.createdAt) - new Date(a.createdAt)
             );
@@ -148,14 +207,33 @@ const Dashboard = ({ user, setUser }) => {
             }
         } catch (err) {
             console.error('SERVER FETCH ERROR:', err);
-            // Fallback to local only if server is unreachable
-            const localIncidents = await getLocalReports();
-            setIncidents(localIncidents.map(inc => ({
-                ...inc,
-                _id: `local-${inc.id}`,
-                status: 'Queued (Offline)',
-                isLocal: true
-            })));
+
+            // Fallback: Populate UI from local IndexedDB if server is reachable but failing
+            try {
+                const { getPendingActions } = await import('../services/db');
+                const pendingActions = await getPendingActions();
+                const pendingCreates = pendingActions.filter(a => a.type === 'CREATE');
+
+                setIncidents(prev => {
+                    const localOnly = pendingCreates.map(action => ({
+                        ...action.payload,
+                        _id: `local-${action.id}`,
+                        status: action.payload.status || 'Pending',
+                        isLocal: true
+                    }));
+                    // Merge with what we already have to prevent 'disappearing' reports
+                    return [...localOnly, ...prev.filter(p => !p.isLocal)];
+                });
+            } catch (dbErr) {
+                console.error("Local recovery failed", dbErr);
+            }
+
+            const status = err.response?.status;
+            if (status === 403 || status === 401) {
+                triggerError('SESSION EXPIRED: Please Logout and Login again to restore Admin access.');
+            } else {
+                triggerError('OFFLINE MODE: Using local synchronization queue.');
+            }
         }
     };
 
@@ -176,17 +254,58 @@ const Dashboard = ({ user, setUser }) => {
     const handleStatusChange = async (id, newStatus) => {
         // OPTIMISTIC UPDATE: Update UI immediately
         setIncidents(prev => prev.map(inc =>
-            inc._id === id ? { ...inc, status: newStatus } : inc
+            inc._id.toString() === id.toString() ? { ...inc, status: newStatus, isQueuedStatus: true } : inc
         ));
 
+        // TYPE A: LOCAL REPORT (Starts with 'local-')
+        if (id.toString().startsWith('local-')) {
+            try {
+                const localId = parseInt(id.toString().replace('local-', ''));
+                const { getPendingActions, updatePendingAction } = await import('../services/db');
+                const actions = await getPendingActions();
+                const action = actions.find(a => a.id === localId);
+
+                if (action) {
+                    action.payload.status = newStatus;
+                    await updatePendingAction(localId, action);
+                    console.log('📝 LOCAL SYNC: Status updated to', newStatus);
+                }
+                // We stop here since it's not on the server yet
+                return;
+            } catch (err) {
+                console.error('LOCAL SYNC ERROR:', err);
+                return;
+            }
+        }
+
+        // TYPE C: OPTIMISTIC/TEMP REPORT
+        if (id.toString().startsWith('temp-')) {
+            console.log('📝 UI: Optimistic status updated locally');
+            return;
+        }
+
+        // TYPE B: LIVE REPORT (Server Update)
         try {
             await updateIncidentStatus(id, newStatus);
-            setStatusUpdateSuccess(true);
-            setTimeout(() => setStatusUpdateSuccess(false), 3000);
-            // No need to fetchData here as socket and local state handle it
+            console.log('📡 SERVER SYNC: Status updated to', newStatus);
+            // Clear the syncing status once server confirms
+            setIncidents(prev => prev.map(inc =>
+                inc._id.toString() === id.toString() ? { ...inc, isQueuedStatus: false } : inc
+            ));
         } catch (err) {
-            alert('CRITICAL: Status update synchronization failed. Rolling back...');
-            fetchData(); // Rollback to server state
+            const isOffline = !navigator.onLine || err.response?.status === 503 || !err.response;
+
+            if (isOffline) {
+                console.log("STATUS: Offline detected. Queuing update for sync...");
+                const { queueAction } = await import('../services/db');
+                await queueAction('UPDATE', { id, status: newStatus });
+                registerSync();
+            } else {
+                console.error('STATUS SYNC FAILED:', err);
+                const errMsg = err.response?.data?.message || 'Access denied or connection lost.';
+                triggerError(`COMMAND FAILED: ${errMsg}`);
+                fetchData(); // Rollback to server truth
+            }
         }
     };
 
@@ -198,32 +317,58 @@ const Dashboard = ({ user, setUser }) => {
         const targetId = deleteModal.id;
         const targetType = deleteModal.type;
 
-        // OPTIMISTIC DELETE: Remove from UI instantly
+        // INSTANT UI RESPONSE: Close modal and remove item
+        setDeleteModal({ show: false, id: null, type: 'incident' });
+
         if (targetType === 'incident') {
-            setIncidents(prev => prev.filter(inc => inc._id !== targetId));
+            setIncidents(prev => prev.filter(inc => inc._id.toString() !== targetId.toString()));
         } else {
-            setUsers(prev => prev.filter(u => u._id !== targetId));
+            setUsers(prev => prev.filter(u => u._id.toString() !== targetId.toString()));
             setUserCount(prev => prev - 1);
         }
 
         try {
             if (targetType === 'incident') {
-                if (targetId.toString().startsWith('local-')) {
-                    const localId = parseInt(targetId.toString().replace('local-', ''));
+                const idStr = targetId.toString();
+                if (idStr.startsWith('local-')) {
+                    const localId = parseInt(idStr.replace('local-', ''));
+                    // Use the imported function from the top of file
                     await deleteLocalReport(localId);
                     console.log('🗑️ OFFLINE: Local report redacted');
+                } else if (idStr.startsWith('temp-') || idStr.startsWith('local-')) {
+                    // It's an optimistic or local report. We already removed it from UI at line 322.
+                    // If it's local- we already handled it above, but we add 'temp-' here to prevent server call.
+                    console.log('🗑️ UI: Temporary report removed locally');
+                    return;
                 } else {
                     await deleteIncident(targetId);
                 }
             } else {
                 await deleteUserAccount(targetId);
             }
-            setDeleteModal({ show: false, id: null, type: 'incident' });
-            // RELY ON SOCKET FOR SYNC - NO REFETCH NEEDED ON SUCCESS
         } catch (err) {
-            console.error('DELETION ERROR:', err);
-            alert(err.response?.data?.message || 'CRITICAL: Deletion sync failed. Rolling back...');
-            fetchData(); // ONLY ROLLBACK ON GENUINE ERROR
+            const isOffline = !navigator.onLine || err.response?.status === 503 || !err.response;
+
+            if (isOffline && targetType === 'incident') {
+                console.log("DELETE: Offline detected. Queuing redaction...");
+                const { queueAction } = await import('../services/db');
+                await queueAction('DELETE', { id: targetId });
+                registerSync();
+                setDeleteModal({ show: false, id: null, type: 'incident' });
+            } else {
+                console.error('DELETION ERROR:', err);
+                const errMsg = err.response?.data?.message || 'Deletion failed. Connection lost.';
+                triggerError(`OPERATION FAILED: ${errMsg}`);
+                fetchData();
+            }
+        }
+    };
+
+    const registerSync = () => {
+        if ('serviceWorker' in navigator && 'SyncManager' in window) {
+            navigator.serviceWorker.ready.then(registration => {
+                return registration.sync.register('sync-reports');
+            }).catch(err => console.log('SYNC REG FAILURE', err));
         }
     };
 
@@ -239,7 +384,7 @@ const Dashboard = ({ user, setUser }) => {
         // Immediate UI feedback so the user knows the button worked instantly
         const optimisticReport = {
             _id: tempId,
-            title: "SOS EMERGENCY (SENDING...)",
+            title: "SOS EMERGENCY",
             type: "Other",
             location: "Detecting GPS...",
             description: "CRITICAL: Urgent help requested via SOS button.",
@@ -288,13 +433,13 @@ const Dashboard = ({ user, setUser }) => {
 
             await reportIncident(sosData);
             setSosSuccess(true);
-            fetchData(); // Backup refresh in case socket is slow
+            // No need for fetchData() here, socket will handle the update
             setTimeout(() => setSosSuccess(false), 5000);
         } catch (err) {
             // ROLLBACK OPTIMISTIC UPDATE ON GENERIC ERROR (Unless it's just connectivity)
             if (err.response?.status === 401 || err.response?.status === 400) {
                 setIncidents(prev => prev.filter(inc => inc._id !== tempId));
-                alert("EMERGENCY FAILURE: Authentication or Data Error");
+                triggerError("EMERGENCY FAILURE: Authentication or Data Error");
             } else {
                 // NETWORK FAILURE or 503 (Offline): Queuing for background sync
                 const isOfflineError = !navigator.onLine ||
@@ -305,7 +450,8 @@ const Dashboard = ({ user, setUser }) => {
                 if (isOfflineError) {
                     console.log("SOS: Network failure/Offline detected. Queuing...");
                     try {
-                        await saveReportLocally({
+                        const { queueAction } = await import('../services/db');
+                        await queueAction('CREATE', {
                             title: "SOS EMERGENCY",
                             type: "Other",
                             location: optimisticReport.location === "Detecting GPS..." ? "GPS_PENDING" : optimisticReport.location,
@@ -313,26 +459,21 @@ const Dashboard = ({ user, setUser }) => {
                             createdAt: new Date().toISOString()
                         });
 
-                        if ('serviceWorker' in navigator && 'SyncManager' in window) {
-                            const registration = await navigator.serviceWorker.ready;
-                            await registration.sync.register('sync-reports');
-                        }
-
+                        registerSync();
                         setSosSuccess(true); // Treat as success (queued)
                         setTimeout(() => setSosSuccess(false), 5000);
                     } catch (dbErr) {
                         console.error("SOS: Failed to save locally", dbErr);
                         setIncidents(prev => prev.filter(inc => inc._id !== tempId));
-                        alert("EMERGENCY FAILURE: Signal could not be queued offline.");
+                        triggerError("OFFLINE FAILURE: Signal could not be saved locally.");
                     }
                 } else {
                     setIncidents(prev => prev.filter(inc => inc._id !== tempId));
-                    alert("EMERGENCY FAILURE: Server error or Timeout");
+                    triggerError("BROADCAST FAILURE: Server is currently unreachable.");
                 }
             }
         } finally {
             setSosLoading(false);
-            fetchIncidents(); // Sync with real server data
         }
     };
 
@@ -388,6 +529,16 @@ const Dashboard = ({ user, setUser }) => {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Error Notifications Toast */}
+            {errorToast.show && (
+                <div className="fixed top-8 left-1/2 transform -translate-x-1/2 z-[70] w-[90%] max-w-md">
+                    <div className="bg-white text-emergency-red p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border-2 border-emergency-red animate-shake font-black text-xs uppercase tracking-widest">
+                        <AlertCircle size={28} className="shrink-0" />
+                        <p>{errorToast.message}</p>
                     </div>
                 </div>
             )}
@@ -472,22 +623,22 @@ const Dashboard = ({ user, setUser }) => {
                     onClick={() => { setShowForm(false); setCurrentView('reports'); }}
                     className={`flex-1 p-3 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-sm tracking-widest uppercase flex items-center justify-center gap-2 sm:gap-3 transition-all ${!showForm && currentView === 'reports' ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
                 >
-                    <List size={18} className="sm:size-[22]" /> {user.role === 'admin' ? 'Recent Alerts' : 'My History'}
+                    <List size={18} className="sm:size-[22]" /> MY VIEW
                 </button>
 
-                {user.role === 'citizen' ? (
-                    <button
-                        onClick={() => setShowForm(true)}
-                        className={`flex-1 p-3 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-sm tracking-widest uppercase flex items-center justify-center gap-2 sm:gap-3 transition-all ${showForm ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
-                    >
-                        <PlusCircle size={18} className="sm:size-[22]" /> Detailed Report
-                    </button>
-                ) : (
+                <button
+                    onClick={() => setShowForm(true)}
+                    className={`flex-1 p-3 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-sm tracking-widest uppercase flex items-center justify-center gap-2 sm:gap-3 transition-all ${showForm ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                >
+                    <PlusCircle size={18} className="sm:size-[22]" /> ADD REPORT
+                </button>
+
+                {user.role === 'admin' && (
                     <button
                         onClick={() => { setShowForm(false); setCurrentView('users'); }}
                         className={`flex-1 p-3 sm:p-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-sm tracking-widest uppercase flex items-center justify-center gap-2 sm:gap-3 transition-all ${!showForm && currentView === 'users' ? 'bg-emergency-red text-white shadow-2xl scale-105' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
                     >
-                        <Users size={18} className="sm:size-[22]" /> Manage Users
+                        <Users size={18} className="sm:size-[22]" /> MANAGE USERS
                     </button>
                 )}
             </div>
@@ -500,6 +651,7 @@ const Dashboard = ({ user, setUser }) => {
                         isOnline={isOnline}
                         user={user}
                         setIncidents={setIncidents}
+                        triggerError={triggerError}
                     />
                 ) : currentView === 'reports' ? (
                     <div className="space-y-4 sm:space-y-6">
@@ -546,6 +698,7 @@ const Dashboard = ({ user, setUser }) => {
                                                     incident.status === 'In Progress' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-orange-100 text-orange-700 border-orange-200'
                                                     }`}>
                                                     {incident.status === 'Resolved' ? <CheckCircle size={10} className="sm:size-[12]" /> : <Clock size={10} className="sm:size-[12]" />} {incident.status}
+                                                    {incident.isQueuedStatus && <span className="ml-1 text-[7px] animate-pulse opacity-50">[SYNCING]</span>}
                                                 </span>
                                             </div>
                                         </div>
