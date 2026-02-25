@@ -202,10 +202,6 @@ app.use((err, req, res, next) => {
  * SERVER LIFECYCLE
  * app.listen is bypassed during Vercel serverless execution
  */
-/**
- * SERVER LIFECYCLE
- * app.listen is bypassed during Vercel serverless execution
- */
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
   server.listen(PORT, () => {
@@ -214,6 +210,7 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     console.log(`📡 WebSocket Engine: Socket.io INITIALIZED`);
   });
 }
+
 
 
 module.exports = app; // Export for Vercel
