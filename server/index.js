@@ -25,9 +25,13 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: (origin, callback) => callback(null, true), // Dynamic origin reflex for credentials support
+    origin: (origin, callback) => {
+      // Allow all origins in development for mobile/lab access
+      return callback(null, true);
+    },
     methods: ["GET", "POST", "PATCH", "DELETE"],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "Cookie"]
   }
 });
 
