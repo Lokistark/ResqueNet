@@ -7,8 +7,9 @@ import { getLocalReports } from '../services/db';
 import { io } from 'socket.io-client';
 
 // Determine Socket Endpoint based on environment
-const SOCKET_URL = import.meta.env.VITE_API_BASE_URL
-    ? import.meta.env.VITE_API_BASE_URL.replace('/api', '')
+const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
+const SOCKET_URL = (apiUrl.startsWith('http'))
+    ? apiUrl.replace('/api', '')
     : (import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin);
 
 const Dashboard = ({ user, setUser }) => {
@@ -51,12 +52,18 @@ const Dashboard = ({ user, setUser }) => {
             // Admins see everything.
             if (user.role === 'admin' || newIncident.reporter === user.name) {
                 setIncidents(prev => {
-                    // Check if we already have this incident
-                    const exists = prev.find(inc => inc._id === newIncident._id);
-                    if (exists) return prev;
+                    // Check if we already have this incident (by real ID)
+                    if (prev.find(inc => inc._id === newIncident._id)) return prev;
 
-                    // Remove optimistic SOS report if it matches the new one (approximate matching)
-                    return [newIncident, ...prev.filter(inc => !inc.isOptimistic)];
+                    // For citizens: Remove the temporary optimistic version of this specific report
+                    if (user.role === 'citizen') {
+                        return [newIncident, ...prev.filter(inc =>
+                            !(inc.isOptimistic && inc.title === newIncident.title)
+                        )];
+                    }
+
+                    // For admins: Just add it to the top
+                    return [newIncident, ...prev];
                 });
             }
         });

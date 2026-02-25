@@ -25,7 +25,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // For development flexibility
+    origin: (origin, callback) => callback(null, true), // Dynamic origin reflex for credentials support
     methods: ["GET", "POST", "PATCH", "DELETE"],
     credentials: true
   }
@@ -35,10 +35,10 @@ const io = new Server(server, {
 app.set('socketio', io);
 
 io.on('connection', (socket) => {
-  console.log('📡 REAL-TIME: User Connected ->', socket.id);
+  console.log(`📡 REAL-TIME: User Connected -> ${socket.id} (Total: ${io.engine.clientsCount})`);
 
-  socket.on('disconnect', () => {
-    console.log('📡 REAL-TIME: User Disconnected ->', socket.id);
+  socket.on('disconnect', (reason) => {
+    console.log(`📡 REAL-TIME: User Disconnected -> ${socket.id} (${reason})`);
   });
 });
 
