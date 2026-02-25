@@ -4,5 +4,12 @@
     "private": true,
     "engines": {
         "node": ">=18.x"
+    },
+    "scripts": {
+        "build": "cd client && npm install && npm run build && cd .. && mkdir -p dist && cp -rn client/dist/* dist/",
+        "install-server": "cd server && npm install"
+    },
+    "dependencies": {
+        "express": "^4.19.2"
     }
 }
