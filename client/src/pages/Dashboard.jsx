@@ -83,16 +83,16 @@ const Dashboard = ({ user, setUser }) => {
             if (user.role === 'admin' || reporterName === myName) {
                 setIncidents(prev => {
                     // Check if we already have this incident (by real ID)
-                    if (prev.find(inc => inc._id === newIncident._id)) return prev;
+                    if (prev.find(inc => inc._id?.toString() === newIncident._id?.toString())) return prev;
 
                     // FILTER OUT OPTIMISTIC/LOCAL VERSIONS
-                    // We match by title and reporter as a proxy for the 'same' report
                     return [newIncident, ...prev.filter(inc => {
                         const incTitle = inc.title?.toString().trim().toLowerCase();
                         const newTitle = newIncident.title?.toString().trim().toLowerCase();
                         const incReporter = inc.reporter?.toString().trim().toLowerCase();
                         const newReporter = newIncident.reporter?.toString().trim().toLowerCase();
 
+                        // Match by title and reporter as a proxy for the 'same' report
                         const isDuplicate = (inc.isOptimistic || inc.isLocal) &&
                             incTitle === newTitle &&
                             incReporter === newReporter;
@@ -321,9 +321,9 @@ const Dashboard = ({ user, setUser }) => {
         setDeleteModal({ show: false, id: null, type: 'incident' });
 
         if (targetType === 'incident') {
-            setIncidents(prev => prev.filter(inc => inc._id.toString() !== targetId.toString()));
+            setIncidents(prev => prev.filter(inc => inc._id?.toString() !== targetId?.toString()));
         } else {
-            setUsers(prev => prev.filter(u => u._id.toString() !== targetId.toString()));
+            setUsers(prev => prev.filter(u => u._id?.toString() !== targetId?.toString()));
             setUserCount(prev => prev - 1);
         }
 
