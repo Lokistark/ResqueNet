@@ -7,17 +7,29 @@ import Register from './pages/Register';
 
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // Start as loading to check session
+  const [user, setUser] = useState(() => {
+    // RESTORE SESSION (Offline Fallback)
+    const cachedUser = localStorage.getItem('resquenet_user');
+    return cachedUser ? JSON.parse(cachedUser) : null;
+  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkSession = async () => {
       try {
         const { getMe } = await import('./services/api');
         const res = await getMe();
-        setUser(res.data.data.user);
+        const freshUser = res.data.data.user;
+        setUser(freshUser);
+        localStorage.setItem('resquenet_user', JSON.stringify(freshUser));
       } catch (err) {
-        console.log('No active session.');
+        console.log('API Session Check Failed:', navigator.onLine ? 'No active session.' : 'Offline.');
+        // If offline and we have a cached user, we keep it. 
+        // If online but session invalid, we clear it.
+        if (navigator.onLine && err.response && err.response.status === 401) {
+          setUser(null);
+          localStorage.removeItem('resquenet_user');
+        }
       } finally {
         setLoading(false);
       }
@@ -36,6 +48,15 @@ function App() {
       });
     }
   }, []);
+
+  // Sync user state to localStorage
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('resquenet_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('resquenet_user');
+    }
+  }, [user]);
 
   if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
 
