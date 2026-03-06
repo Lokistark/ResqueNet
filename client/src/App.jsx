@@ -16,30 +16,33 @@ function App() {
 
   useEffect(() => {
     /**
-     * OFFLINE-FIRST AUTH PATTERN
-     * Prioritizes the local session. If a token exists, the user is kept 
-     * in the Dashboard bypassing any internet requirement.
+     * MOBILE PATTERN: checkAuthentication()
+     * Ignores connectivity status. Prioritizes local token.
      */
     const checkAuthentication = async () => {
-      // AUTO-NAVIGATE: If a user is already in state from cache, allow UI access immediately.
-      if (user) setLoading(false);
-
-      // Only attempt remote verification if online, but NEVER block UI if it fails.
-      if (navigator.onLine) {
-        try {
-          const res = await getMe();
-          const freshUser = res.data.data.user;
-          setUser(freshUser);
-          localStorage.setItem('resquenet_user', JSON.stringify(freshUser));
-        } catch (err) {
-          if (err.response && (err.response.status === 401 || err.response.status === 403)) {
-            // Only clear state if the server EXPLICITLY says the session is dead.
-            setUser(null);
-            localStorage.removeItem('resquenet_user');
-          }
-        }
+      // 1. FORCE LOAD UI: If local session exists, get the user into the app immediately.
+      if (user) {
+        setLoading(false);
       }
-      setLoading(false);
+
+      // 2. SILENT BACKGROUND REFRESH: Attempt to sync session but never block if offline.
+      try {
+        const res = await getMe();
+        const freshUser = res.data.data.user;
+        setUser(freshUser);
+        localStorage.setItem('resquenet_user', JSON.stringify(freshUser));
+      } catch (err) {
+        const isAuthError = err.response && (err.response.status === 401 || err.response.status === 403);
+        if (isAuthError) {
+          // Absolute logout ONLY if server explicitly invalidates the token.
+          setUser(null);
+          localStorage.removeItem('resquenet_user');
+          localStorage.removeItem('resquenet_incidents');
+        }
+        // Network errors are ignored. The local session remains active.
+      } finally {
+        setLoading(false);
+      }
     };
 
     checkAuthentication();

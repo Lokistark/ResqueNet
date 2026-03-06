@@ -154,25 +154,25 @@ const Dashboard = ({ user, setUser }) => {
      * Fetches all relevant data based on user role.
      * Citizens get their own reports; Admins get everything.
      */
-    // --- 🧬 THE DEFINITIVE LOCAL-FIRST PATTERN ---
+    // --- 🧬 THE MOBILE PATTERN: PERSISTENT OFFLINE ENGINE (v20) ---
 
     /**
      * Phase 1: loadLocalData() 
-     * Loads incident list from IndexedDB cache immediately for instant UI
+     * Forced load from local database immediately on launch.
      */
     const loadLocalData = async () => {
         try {
             const cachedIncidents = await getCachedData('incidents');
             if (cachedIncidents && cachedIncidents.length > 0) {
                 setIncidents(cachedIncidents);
-                console.log('🏗️ DASHBOARD: UI Restored from Local Memory.');
+                console.log('🏗️ PERSISTENCE: Dashboard Restored from Local DB.');
             }
-        } catch (err) { console.warn('Local load failed:', err); }
+        } catch (err) { console.warn('Local DB failed:', err); }
     };
 
     /**
      * Phase 2: syncRemoteData()
-     * Silent background service to update data AFTER the dashboard is visible
+     * Background sync service. Operates silently without UI barriers.
      */
     const syncRemoteData = async () => {
         try {
@@ -214,7 +214,7 @@ const Dashboard = ({ user, setUser }) => {
             // 4. Update UI and Permanent Cache
             setIncidents(finalData);
             await saveCachedData('incidents', finalData);
-            console.log('🏗️ SYNC: Dashboard refreshed silently.');
+            console.log('🏗️ SYNC: Background refresh completed.');
 
             if (user.role === 'admin') {
                 const countRes = await getUserCount();
@@ -223,7 +223,7 @@ const Dashboard = ({ user, setUser }) => {
                 setUsers(usersRes.data.data.users);
             }
         } catch (err) {
-            console.log('📡 SYNC: Network unavailable. Continuing with local data.');
+            console.log('📡 BACKGROUND: Network missing. Sticking with local data.');
         }
     };
 
