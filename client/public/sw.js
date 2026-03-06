@@ -1,10 +1,10 @@
-const CACHE_NAME = 'resquenet-v9';
+const CACHE_NAME = 'resquenet-v10';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
     '/manifest.json',
     '/sw.js',
-    '/vite.svg'
+    '/icon.png'
 ];
 
 // 1. INSTALL: Build the core shell

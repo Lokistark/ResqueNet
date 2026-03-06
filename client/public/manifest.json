@@ -3,12 +3,13 @@
     "name": "ResqueNet Disaster Response",
     "icons": [
         {
-            "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23dc2626%22><path d=%22M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z%22/></svg>",
-            "sizes": "192x192 512x512",
-            "type": "image/svg+xml"
+            "src": "/icon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
         }
     ],
-    "start_url": ".",
+    "start_url": "/",
     "display": "standalone",
     "theme_color": "#dc2626",
     "background_color": "#ffffff"
