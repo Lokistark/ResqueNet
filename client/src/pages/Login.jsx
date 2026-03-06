@@ -127,7 +127,7 @@ const Login = ({ setUser }) => {
                     <div className="inline-block p-3 sm:p-4 bg-red-50 rounded-2xl sm:rounded-3xl mb-3 sm:mb-4 group hover:scale-110 transition-transform">
                         <Shield className="text-emergency-red size-10 sm:size-14" />
                     </div>
-                    <h1 className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tighter leading-none">RESQUENET</h1>
+                    <h1 className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tighter leading-none">RESQ</h1>
                     <p className="text-gray-400 font-black uppercase text-[8px] sm:text-[10px] tracking-[0.3em] mt-2 sm:mt-3">Emergency Response Protocol</p>
                 </div>
 

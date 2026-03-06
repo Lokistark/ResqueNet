@@ -1,10 +1,10 @@
-const CACHE_NAME = 'resquenet-v11';
+const CACHE_NAME = 'resquenet-v12';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
     '/manifest.json',
     '/sw.js',
-    '/icon.png'
+    '/icon.jpg'
 ];
 
 // 1. INSTALL: Burn the shell into memory

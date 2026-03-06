@@ -568,7 +568,7 @@ const Dashboard = ({ user, setUser }) => {
                 <div className="text-center sm:text-left">
                     <h1 className="text-3xl sm:text-4xl font-black text-gray-900 flex items-center justify-center sm:justify-start gap-3">
                         <Shield className="text-emergency-red" size={40} />
-                        RESQUENET
+                        RESQ
                     </h1>
                     <p className="text-gray-500 font-bold lowercase mt-1 shrink-0">
                         Logged in as {user.name} ({user.role})
