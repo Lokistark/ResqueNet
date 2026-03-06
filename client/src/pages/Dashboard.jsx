@@ -154,21 +154,33 @@ const Dashboard = ({ user, setUser }) => {
      * Fetches all relevant data based on user role.
      * Citizens get their own reports; Admins get everything.
      */
-    const fetchData = async () => {
-        // --- 1. LOCAL FIRST: LOAD CACHE IMMEDIATELY ---
+    // --- 🧬 THE DEFINITIVE LOCAL-FIRST PATTERN ---
+
+    /**
+     * Phase 1: loadLocalData() 
+     * Loads incident list from IndexedDB cache immediately for instant UI
+     */
+    const loadLocalData = async () => {
         try {
             const cachedIncidents = await getCachedData('incidents');
-            if (cachedIncidents && incidents.length === 0) {
+            if (cachedIncidents && cachedIncidents.length > 0) {
                 setIncidents(cachedIncidents);
+                console.log('🏗️ DASHBOARD: UI Restored from Local Memory.');
             }
-        } catch (err) { console.warn('Cache load failed:', err); }
+        } catch (err) { console.warn('Local load failed:', err); }
+    };
 
+    /**
+     * Phase 2: syncRemoteData()
+     * Silent background service to update data AFTER the dashboard is visible
+     */
+    const syncRemoteData = async () => {
         try {
-            // --- 2. FETCH FROM SERVER (SILENTLY) ---
+            // 1. Silent Fetch
             const res = user.role === 'admin' ? await getIncidents() : await getMyIncidents();
             let liveIncidents = res.data.data.incidents;
 
-            // --- 3. FETCH PENDING ACTIONS ---
+            // 2. Local Action Delta
             const { getPendingActions } = await import('../services/db');
             const pendingActions = await getPendingActions();
 
@@ -176,7 +188,7 @@ const Dashboard = ({ user, setUser }) => {
             const pendingUpdates = pendingActions.filter(a => a.type === 'UPDATE');
             const pendingDeletes = pendingActions.filter(a => a.type === 'DELETE');
 
-            // --- 4. MERGE & SYNC ---
+            // 3. Reconcile Actions
             const deleteIds = pendingDeletes.map(a => String(a.payload.id || a.payload._id));
             liveIncidents = liveIncidents.filter(inc => !deleteIds.includes(String(inc._id)));
 
@@ -199,9 +211,10 @@ const Dashboard = ({ user, setUser }) => {
                 new Date(b.createdAt) - new Date(a.createdAt)
             );
 
-            // --- 5. COMMIT TO CACHE AND UI ---
+            // 4. Update UI and Permanent Cache
             setIncidents(finalData);
             await saveCachedData('incidents', finalData);
+            console.log('🏗️ SYNC: Dashboard refreshed silently.');
 
             if (user.role === 'admin') {
                 const countRes = await getUserCount();
@@ -210,9 +223,13 @@ const Dashboard = ({ user, setUser }) => {
                 setUsers(usersRes.data.data.users);
             }
         } catch (err) {
-            console.log('📡 BACKGROUND REFRESH: Network unavailable, using cache.');
-            // We never trigger an error toast here anymore to keep it seamless.
+            console.log('📡 SYNC: Network unavailable. Continuing with local data.');
         }
+    };
+
+    const fetchData = async () => {
+        await loadLocalData();
+        await syncRemoteData();
     };
 
     const fetchIncidents = fetchData; // Alias for compatibility

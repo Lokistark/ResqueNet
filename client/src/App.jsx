@@ -31,9 +31,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const checkSession = async () => {
-      // 1. SILENT STARTUP: If we have a cached user, we are already "In" 
-      // regardless of the internet.
+    /**
+     * PATTERN 1: checkAuthentication()
+     * Reads from persistent localStorage instead of blocking on an API.
+     */
+    const checkAuthentication = async () => {
+      // INSTANT AUTH: If we have a local key, we are "In" immediately.
       if (user) setLoading(false);
 
       if (!navigator.onLine) {
@@ -48,23 +51,18 @@ function App() {
         localStorage.setItem('resquenet_user', JSON.stringify(freshUser));
       } catch (err) {
         const isAuthError = err.response && (err.response.status === 401 || err.response.status === 403);
-        const isNetworkError = !err.response || err.response.status >= 500;
-
         if (isAuthError && navigator.onLine) {
-          // Only log out if the SERVER explicitly told us the session is dead
           console.log('📡 AUTH: Session invalidated by server.');
           setUser(null);
           localStorage.removeItem('resquenet_user');
-          localStorage.removeItem('resquenet_incidents'); // Clear history on logout
-        } else if (isNetworkError) {
-          console.log('📡 NETWORK: Server unreachable, sticking with local session.');
+          localStorage.removeItem('resquenet_incidents');
         }
       } finally {
         setLoading(false);
       }
     };
 
-    checkSession();
+    checkAuthentication();
 
     // Register Service Worker
     if ('serviceWorker' in navigator) {
