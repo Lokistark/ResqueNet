@@ -1,106 +1,62 @@
-// Force Redeploy: 2
+// RESQ-V19: PURE OFFLINE-FIRST ENGINE
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { ShieldAlert, WifiOff } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { getMe } from './services/api';
 
-
 function App() {
   const [user, setUser] = useState(() => {
-    // RESTORE SESSION (Offline Fallback)
+    // 🏗️ LOCAL STORAGE FIRST: Retrieve the persistent auth session immediately.
     const cachedUser = localStorage.getItem('resquenet_user');
     return cachedUser ? JSON.parse(cachedUser) : null;
   });
   const [loading, setLoading] = useState(true);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   useEffect(() => {
     /**
-     * PATTERN 1: checkAuthentication()
-     * Reads from persistent localStorage instead of blocking on an API.
+     * OFFLINE-FIRST AUTH PATTERN
+     * Prioritizes the local session. If a token exists, the user is kept 
+     * in the Dashboard bypassing any internet requirement.
      */
     const checkAuthentication = async () => {
-      // INSTANT AUTH: If we have a local key, we are "In" immediately.
+      // AUTO-NAVIGATE: If a user is already in state from cache, allow UI access immediately.
       if (user) setLoading(false);
 
-      if (!navigator.onLine) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const res = await getMe();
-        const freshUser = res.data.data.user;
-        setUser(freshUser);
-        localStorage.setItem('resquenet_user', JSON.stringify(freshUser));
-      } catch (err) {
-        const isAuthError = err.response && (err.response.status === 401 || err.response.status === 403);
-        if (isAuthError && navigator.onLine) {
-          console.log('📡 AUTH: Session invalidated by server.');
-          setUser(null);
-          localStorage.removeItem('resquenet_user');
-          localStorage.removeItem('resquenet_incidents');
+      // Only attempt remote verification if online, but NEVER block UI if it fails.
+      if (navigator.onLine) {
+        try {
+          const res = await getMe();
+          const freshUser = res.data.data.user;
+          setUser(freshUser);
+          localStorage.setItem('resquenet_user', JSON.stringify(freshUser));
+        } catch (err) {
+          if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+            // Only clear state if the server EXPLICITLY says the session is dead.
+            setUser(null);
+            localStorage.removeItem('resquenet_user');
+          }
         }
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     };
 
     checkAuthentication();
 
-    // Register Service Worker
+    // REGISTER SILENT SERVICE WORKER
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(registration => {
-          console.log('SW registered:', registration);
-        }).catch(error => {
-          console.log('SW registration failed:', error);
-        });
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW ERR:', err));
       });
     }
   }, []);
 
-  // Sync user state to localStorage
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('resquenet_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('resquenet_user');
-    }
-  }, [user]);
-
-  if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  if (loading) return null; // Zero-Flicker Launch
 
   return (
     <Router>
       <div className="min-h-screen bg-gray-100 flex flex-col">
-        {/* OFFLINE INDICATOR */}
-        {isOffline && (
-          <div className="bg-red-600 text-white px-4 py-2 flex items-center justify-center gap-3 animate-pulse sticky top-0 z-[9999] shadow-lg">
-            <WifiOff size={18} className="shrink-0" />
-            <span className="text-xs font-black uppercase tracking-widest">
-              OFFLINE MODE: RESILIENT
-            </span>
-            <ShieldAlert size={18} className="shrink-0" />
-          </div>
-        )}
-
         <div className="flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<Navigate to="/login" />} />
