@@ -1,10 +1,9 @@
-const CACHE_NAME = 'resquenet-v4';
+const CACHE_NAME = 'resquenet-v5';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
     '/manifest.json',
     '/sw.js',
-    // UI Assets are cached dynamically on fetch
 ];
 
 // INSTALL: Cache critical assets
@@ -35,20 +34,18 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// FETCH: Network-First for API, Cache-First for UI
+// FETCH: Network-First for API, Cache-First for UI with Navigation Fallback
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // API requests: Try network first
+    // 1. API requests: Try network first
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
             fetch(request).catch(async () => {
                 const cachedResponse = await caches.match(request);
-
                 if (cachedResponse) return cachedResponse;
 
-                // For POST/PATCH requests, return a specific "Offline" marker
                 return new Response(JSON.stringify({
                     status: 'error',
                     message: 'Offline: Request Queued'
@@ -61,8 +58,15 @@ self.addEventListener('fetch', (event) => {
                 });
             })
         );
-    } else {
-        // UI Assets: Stale-While-Revalidate (Fast UI, but updates on next load)
+    }
+    // 2. Navigation Fallback: Serve index.html for any route in offline mode
+    else if (request.mode === 'navigate') {
+        event.respondWith(
+            fetch(request).catch(() => caches.match('/index.html'))
+        );
+    }
+    // 3. UI Assets: Stale-While-Revalidate
+    else {
         event.respondWith(
             caches.match(request).then((cachedResponse) => {
                 const fetchPromise = fetch(request).then((networkResponse) => {
