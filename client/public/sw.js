@@ -1,5 +1,6 @@
-const CACHE_NAME = 'resquenet-v14';
+const CACHE_NAME = 'resquenet-v15';
 const URLS_TO_CACHE = [
+    '/',
     '/login',
     '/dashboard',
     '/index.html',
@@ -8,18 +9,19 @@ const URLS_TO_CACHE = [
     '/icon.jpg'
 ];
 
-// 1. INSTALL: Build the fortress
+// 1. INSTALL: Build the fortress shell
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log('SW: Pre-caching v14 Strategy');
+            console.log('SW: Pre-caching v15 (Offline Refresh Fix)');
+            // Add individual files to ensure they are all in the cache
             return cache.addAll(URLS_TO_CACHE);
         })
     );
     self.skipWaiting();
 });
 
-// 2. ACTIVATE: Pure control
+// 2. ACTIVATE: Purge and Claim
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) => Promise.all(
@@ -31,26 +33,28 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// 3. FETCH: The Zero-Failure Engine
+// 3. FETCH: The Bulletproof Routing Engine
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    if (request.method !== 'GET') return;
+    // Filter to only handle GET requests for our origin to avoid cross-origin cache pollution
+    if (request.method !== 'GET' || !url.origin.includes(location.origin)) return;
 
-    // --- PRIORITY A: NAVIGATION (Ensures Mobile never shows Chrome Offline Screen) ---
+    // --- STRATEGY: NAVIGATION (Refreshes and URL entry) ---
     if (request.mode === 'navigate') {
         event.respondWith(
             fetch(request).catch(async () => {
-                console.log('SW: Navigation failed, serving index.html');
-                const cached = await caches.match('/index.html') || await caches.match('/login') || await caches.match('/');
-                return cached || new Response('App Offline. Please connect to internet once.', { status: 503 });
+                console.log(`SW: Offline navigation to ${url.pathname}, serving shell`);
+                // ALWAYS return index.html for navigation requests offline
+                const shell = await caches.match('/index.html') || await caches.match('/login') || await caches.match('/');
+                return shell || new Response('App Offline. Please connect once to activate.', { status: 503 });
             })
         );
         return;
     }
 
-    // --- PRIORITY B: API CALLS ---
+    // --- STRATEGY: API CALLS ---
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
             fetch(request).catch(async () => {
@@ -63,25 +67,27 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // --- PRIORITY C: ASSETS ---
+    // --- STRATEGY: ASSETS (JS, CSS, Images) ---
     event.respondWith(
         caches.match(request).then(async (cached) => {
             if (cached) return cached;
+
             try {
-                const res = await fetch(request);
-                if (res && res.status === 200) {
+                const networkResponse = await fetch(request);
+                if (networkResponse && networkResponse.status === 200) {
                     const cache = await caches.open(CACHE_NAME);
-                    cache.put(request, res.clone());
+                    cache.put(request, networkResponse.clone());
                 }
-                return res;
-            } catch {
-                return new Response('Asset Offline', { status: 404 });
+                return networkResponse;
+            } catch (err) {
+                // Return a valid error response if both fail
+                return new Response('Asset Unavailable Offline', { status: 404 });
             }
         })
     );
 });
 
-// 4. SYNC: Final background sync
+// 4. SYNC: Background sync for reports
 self.addEventListener('sync', (event) => {
     if (event.tag === 'sync-reports') event.waitUntil(syncActions());
 });

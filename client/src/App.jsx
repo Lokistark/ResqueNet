@@ -1,6 +1,7 @@
-// Force Redeploy: 1
+// Force Redeploy: 2
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { ShieldAlert, WifiOff } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -14,6 +15,20 @@ function App() {
     return cachedUser ? JSON.parse(cachedUser) : null;
   });
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -67,13 +82,26 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-100">
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" />} />
-          <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to="/dashboard" />} />
-          <Route path="/register" element={!user ? <Register setUser={setUser} /> : <Navigate to="/dashboard" />} />
-          <Route path="/dashboard" element={user ? <Dashboard user={user} setUser={setUser} /> : <Navigate to="/login" />} />
-        </Routes>
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        {/* OFFLINE INDICATOR */}
+        {isOffline && (
+          <div className="bg-red-600 text-white px-4 py-2 flex items-center justify-center gap-3 animate-pulse sticky top-0 z-[9999] shadow-lg">
+            <WifiOff size={18} className="shrink-0" />
+            <span className="text-xs font-black uppercase tracking-widest">
+              OFFLINE MODE: RESILIENT
+            </span>
+            <ShieldAlert size={18} className="shrink-0" />
+          </div>
+        )}
+
+        <div className="flex-1 overflow-auto">
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" />} />
+            <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to="/dashboard" />} />
+            <Route path="/register" element={!user ? <Register setUser={setUser} /> : <Navigate to="/dashboard" />} />
+            <Route path="/dashboard" element={user ? <Dashboard user={user} setUser={setUser} /> : <Navigate to="/login" />} />
+          </Routes>
+        </div>
       </div>
     </Router>
   );
