@@ -1,4 +1,4 @@
-const CACHE_NAME = 'resquenet-v7';
+const CACHE_NAME = 'resquenet-v8';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
@@ -7,25 +7,21 @@ const URLS_TO_CACHE = [
     '/vite.svg'
 ];
 
-// INSTALL: Pre-cache core shell
+// INSTALL: Force wait until core assets are cached
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(URLS_TO_CACHE);
-        })
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE))
     );
     self.skipWaiting();
 });
 
-// ACTIVATE: Cleanup old versions
+// ACTIVATE: Aggressive cleanup
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cache) => {
-                    if (cache !== CACHE_NAME) {
-                        return caches.delete(cache);
-                    }
+                    if (cache !== CACHE_NAME) return caches.delete(cache);
                 })
             );
         })
@@ -33,31 +29,29 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// FETCH: THE CORE OF OFFLINE POWER
+// FETCH: Robust Response Handling
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // 1. API CALLS: Network-First
+    // Skip non-GET requests for caching logic
+    if (request.method !== 'GET') return;
+
+    // 1. API: Network-First
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
             fetch(request).catch(async () => {
                 const cached = await caches.match(request);
-                if (cached) return cached;
-
-                return new Response(JSON.stringify({
-                    status: 'error',
-                    message: 'Offline: Action Queued'
-                }), {
+                return cached || new Response(JSON.stringify({ error: 'offline' }), {
                     status: 503,
-                    headers: { 'Content-Type': 'application/json', 'X-ResqueNet-Offline': 'true' }
+                    headers: { 'Content-Type': 'application/json' }
                 });
             })
         );
         return;
     }
 
-    // 2. NAVIGATION (Pages): Always serve index.html if offline
+    // 2. NAVIGATION: The "Main Shell" Fallback
     if (request.mode === 'navigate') {
         event.respondWith(
             fetch(request).catch(() => caches.match('/index.html'))
@@ -65,27 +59,26 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 3. STATIC ASSETS (JS/CSS/IMGS): Cache-First (Fastest & Offline-Ready)
+    // 3. ASSETS: Cache-First
     event.respondWith(
         caches.match(request).then((cachedResponse) => {
-            if (cachedResponse) return cachedResponse;
-
-            return fetch(request).then((networkResponse) => {
-                // If it's a valid response, cache it for next time
+            const fetchPromise = fetch(request).then((networkResponse) => {
                 if (networkResponse && networkResponse.status === 200) {
                     const cacheCopy = networkResponse.clone();
                     caches.open(CACHE_NAME).then(cache => cache.put(request, cacheCopy));
                 }
                 return networkResponse;
             }).catch(() => {
-                // Return nothing if both fail (browser handles this)
-                return null;
+                // Return a generic error response instead of null to prevent TypeError
+                return new Response('Network error occurred', { status: 408 });
             });
+
+            return cachedResponse || fetchPromise;
         })
     );
 });
 
-// SYNC: Background Synchronization for offline reports
+// SYNC: Background Data Synchronization
 self.addEventListener('sync', (event) => {
     if (event.tag === 'sync-reports') {
         event.waitUntil(syncActions());
@@ -113,12 +106,10 @@ async function syncActions() {
 
             for (const action of actions) {
                 try {
-                    let res;
                     const { type, payload } = action;
-
+                    let res;
                     if (type === 'CREATE') {
-                        const path = payload.isPublic ? '/api/incidents/public-sos' : '/api/incidents';
-                        res = await fetch(path, {
+                        res = await fetch(payload.isPublic ? '/api/incidents/public-sos' : '/api/incidents', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload),
@@ -140,7 +131,7 @@ async function syncActions() {
                         delTx.objectStore(storeName).delete(action.id);
                     }
                 } catch (err) {
-                    console.error('SW Sync err:', err);
+                    console.error('Sync failed:', err);
                 }
             }
             resolve();
