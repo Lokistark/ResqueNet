@@ -154,25 +154,26 @@ const Dashboard = ({ user, setUser }) => {
      * Fetches all relevant data based on user role.
      * Citizens get their own reports; Admins get everything.
      */
-    // --- 🧬 THE MOBILE PATTERN: PERSISTENT OFFLINE ENGINE (v20) ---
+    // --- 🧬 LOCAL-FIRST ARCHITECTURE PATTERNS (v21) ---
 
     /**
-     * Phase 1: loadLocalData() 
-     * Forced load from local database immediately on launch.
+     * PATTERN: Load from Local DB
+     * Fetch initial data from local device memory (SQLite/IDB equivalent)
+     * instead of the API to ensure ZERO load failure if offline.
      */
     const loadLocalData = async () => {
         try {
             const cachedIncidents = await getCachedData('incidents');
             if (cachedIncidents && cachedIncidents.length > 0) {
                 setIncidents(cachedIncidents);
-                console.log('🏗️ PERSISTENCE: Dashboard Restored from Local DB.');
+                console.log('🏗️ PERSISTENCE: Data restored from local DB.');
             }
-        } catch (err) { console.warn('Local DB failed:', err); }
+        } catch (err) { console.warn('Local load failed:', err); }
     };
 
     /**
-     * Phase 2: syncRemoteData()
-     * Background sync service. Operates silently without UI barriers.
+     * PATTERN: Silent Background Sync Process
+     * Replaces the 'Offline' screen with an invisible data reconciliation service.
      */
     const syncRemoteData = async () => {
         try {

@@ -16,16 +16,17 @@ function App() {
 
   useEffect(() => {
     /**
-     * MOBILE PATTERN: checkAuthentication()
-     * Ignores connectivity status. Prioritizes local token.
+     * PATTERN: Persistent Authentication Controller (v21)
+     * Reads session from persistent device memory (SecureStorage equivalent).
+     * Bypasses network checks to ensure immediate launch from app restart.
      */
-    const checkAuthentication = async () => {
-      // 1. FORCE LOAD UI: If local session exists, get the user into the app immediately.
+    const startPersistentAuthController = async () => {
+      // 1. AUTO-ROUTE: If a token/user exists locally, get them into the app now.
       if (user) {
         setLoading(false);
       }
 
-      // 2. SILENT BACKGROUND REFRESH: Attempt to sync session but never block if offline.
+      // 2. SILENT BACKGROUND TOKEN VERIFICATION (Non-Blocking)
       try {
         const res = await getMe();
         const freshUser = res.data.data.user;
@@ -34,18 +35,17 @@ function App() {
       } catch (err) {
         const isAuthError = err.response && (err.response.status === 401 || err.response.status === 403);
         if (isAuthError) {
-          // Absolute logout ONLY if server explicitly invalidates the token.
+          // Token invalidated by server. Perform secure logout.
           setUser(null);
           localStorage.removeItem('resquenet_user');
           localStorage.removeItem('resquenet_incidents');
         }
-        // Network errors are ignored. The local session remains active.
       } finally {
         setLoading(false);
       }
     };
 
-    checkAuthentication();
+    startPersistentAuthController();
 
     // REGISTER SILENT SERVICE WORKER
     if ('serviceWorker' in navigator) {

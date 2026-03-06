@@ -1,4 +1,4 @@
-const CACHE_NAME = 'resq-v18';
+const CACHE_NAME = 'resq-v21';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
