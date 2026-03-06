@@ -117,7 +117,7 @@ app.use('/api/incidents', incidentRoutes);
 // Health Check for Vercel
 let dbError = null;
 
-app.get(['/', '/api'], (req, res) => {
+app.get('/api', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
   res.json({
     status: 'Operational',
