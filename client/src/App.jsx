@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import { getMe } from './services/api';
 
 
 function App() {
@@ -17,7 +18,6 @@ function App() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { getMe } = await import('./services/api');
         const res = await getMe();
         const freshUser = res.data.data.user;
         setUser(freshUser);

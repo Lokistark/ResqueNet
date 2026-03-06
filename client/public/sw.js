@@ -1,4 +1,4 @@
-const CACHE_NAME = 'resquenet-v5';
+const CACHE_NAME = 'resquenet-v6';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
