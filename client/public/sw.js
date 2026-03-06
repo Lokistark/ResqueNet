@@ -1,11 +1,10 @@
-const CACHE_NAME = 'resquenet-v15';
+const CACHE_NAME = 'resq-v16';
 const URLS_TO_CACHE = [
     '/',
+    '/index.html',
     '/login',
     '/dashboard',
-    '/index.html',
     '/manifest.json',
-    '/sw.js',
     '/icon.jpg'
 ];
 
@@ -13,15 +12,14 @@ const URLS_TO_CACHE = [
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log('SW: Pre-caching v15 (Offline Refresh Fix)');
-            // Add individual files to ensure they are all in the cache
+            console.log('SW: Pre-caching v16 fortress');
             return cache.addAll(URLS_TO_CACHE);
         })
     );
     self.skipWaiting();
 });
 
-// 2. ACTIVATE: Purge and Claim
+// 2. ACTIVATE: Claim all pages instantly
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) => Promise.all(
@@ -38,23 +36,9 @@ self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // Filter to only handle GET requests for our origin to avoid cross-origin cache pollution
-    if (request.method !== 'GET' || !url.origin.includes(location.origin)) return;
+    if (request.method !== 'GET') return;
 
-    // --- STRATEGY: NAVIGATION (Refreshes and URL entry) ---
-    if (request.mode === 'navigate') {
-        event.respondWith(
-            fetch(request).catch(async () => {
-                console.log(`SW: Offline navigation to ${url.pathname}, serving shell`);
-                // ALWAYS return index.html for navigation requests offline
-                const shell = await caches.match('/index.html') || await caches.match('/login') || await caches.match('/');
-                return shell || new Response('App Offline. Please connect once to activate.', { status: 503 });
-            })
-        );
-        return;
-    }
-
-    // --- STRATEGY: API CALLS ---
+    // --- STRATEGY A: API ROUTES (Always Network First, cached secondary) ---
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
             fetch(request).catch(async () => {
@@ -67,27 +51,44 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // --- STRATEGY: ASSETS (JS, CSS, Images) ---
+    // --- STRATEGY B: THE "MOBILE REFRESH" FIX (Cache-First for Engine) ---
+    // This is the CRITICAL fix for the "You're offline" screen.
+    // We check the cache FIRST for the app shell.
+    if (request.mode === 'navigate') {
+        event.respondWith(
+            caches.match('/index.html').then((cachedShell) => {
+                // If we have it in memory, give it to the browser INSTANTLY
+                if (cachedShell && !navigator.onLine) {
+                    return cachedShell;
+                }
+                // Otherwise try network but fallback to shell on failure
+                return fetch(request).catch(async () => {
+                    return cachedShell || caches.match('/login') || caches.match('/');
+                });
+            })
+        );
+        return;
+    }
+
+    // --- STRATEGY C: ASSETS (CSS, JS, Images) ---
     event.respondWith(
         caches.match(request).then(async (cached) => {
             if (cached) return cached;
-
             try {
-                const networkResponse = await fetch(request);
-                if (networkResponse && networkResponse.status === 200) {
+                const res = await fetch(request);
+                if (res && res.status === 200) {
                     const cache = await caches.open(CACHE_NAME);
-                    cache.put(request, networkResponse.clone());
+                    cache.put(request, res.clone());
                 }
-                return networkResponse;
+                return res;
             } catch (err) {
-                // Return a valid error response if both fail
-                return new Response('Asset Unavailable Offline', { status: 404 });
+                return new Response('Offline resource missing', { status: 404 });
             }
         })
     );
 });
 
-// 4. SYNC: Background sync for reports
+// 4. SYNC: Sync queued actions when internet returns
 self.addEventListener('sync', (event) => {
     if (event.tag === 'sync-reports') event.waitUntil(syncActions());
 });
