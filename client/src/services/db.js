@@ -5,8 +5,10 @@ const STORE_NAME = 'pendingActions';
 
 console.log('📡 DB_SERVICE: Initializing IndexedDB Module');
 
+const CACHE_STORE_NAME = 'cachedData';
+
 export const initDB = async () => {
-    return openDB(DB_NAME, 2, {
+    return openDB(DB_NAME, 3, {
         upgrade(db, oldVersion) {
             if (oldVersion < 2) {
                 if (db.objectStoreNames.contains('pendingReports')) {
@@ -14,8 +16,24 @@ export const initDB = async () => {
                 }
                 db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
             }
+            if (oldVersion < 3) {
+                db.createObjectStore(CACHE_STORE_NAME);
+            }
         },
     });
+};
+
+/**
+ * Cache server-fetched data for instant offline views
+ */
+export const saveCachedData = async (key, data) => {
+    const db = await initDB();
+    return db.put(CACHE_STORE_NAME, data, key);
+};
+
+export const getCachedData = async (key) => {
+    const db = await initDB();
+    return db.get(CACHE_STORE_NAME, key);
 };
 
 /**

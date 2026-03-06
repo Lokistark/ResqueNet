@@ -1,10 +1,11 @@
-const CACHE_NAME = 'resq-v16';
+const CACHE_NAME = 'resq-v17';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
     '/login',
     '/dashboard',
     '/manifest.json',
+    '/sw.js',
     '/icon.jpg'
 ];
 

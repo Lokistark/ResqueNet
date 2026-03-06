@@ -3,7 +3,7 @@ import { Shield, LogOut, PlusCircle, List, AlertCircle, CheckCircle, Clock, Tras
 import { logout, getIncidents, getMyIncidents, updateIncidentStatus, reportIncident, deleteIncident, getUserCount, getAllUsers, deleteUserAccount } from '../services/api';
 import IncidentForm from '../components/IncidentForm';
 import StatusIndicator from '../components/StatusIndicator';
-import { getLocalReports, deleteLocalReport } from '../services/db';
+import { getLocalReports, deleteLocalReport, saveCachedData, getCachedData } from '../services/db';
 import { io } from 'socket.io-client';
 
 // Use current origin for socket; Vite proxy handles routing in dev, and relative works in prod
@@ -155,31 +155,36 @@ const Dashboard = ({ user, setUser }) => {
      * Citizens get their own reports; Admins get everything.
      */
     const fetchData = async () => {
+        // --- 1. LOCAL FIRST: LOAD CACHE IMMEDIATELY ---
         try {
-            // 1. Fetch live data from server
+            const cachedIncidents = await getCachedData('incidents');
+            if (cachedIncidents && incidents.length === 0) {
+                setIncidents(cachedIncidents);
+            }
+        } catch (err) { console.warn('Cache load failed:', err); }
+
+        try {
+            // --- 2. FETCH FROM SERVER (SILENTLY) ---
             const res = user.role === 'admin' ? await getIncidents() : await getMyIncidents();
             let liveIncidents = res.data.data.incidents;
 
-            // 2. Fetch all pending actions from local IndexedDB
+            // --- 3. FETCH PENDING ACTIONS ---
             const { getPendingActions } = await import('../services/db');
             const pendingActions = await getPendingActions();
 
-            // 3. Separate ACTIONS
             const pendingCreates = pendingActions.filter(a => a.type === 'CREATE');
             const pendingUpdates = pendingActions.filter(a => a.type === 'UPDATE');
             const pendingDeletes = pendingActions.filter(a => a.type === 'DELETE');
 
-            // 4. APPLY PENDING DELETES (Hide items from UI)
-            const deleteIds = pendingDeletes.map(a => a.payload.id.toString());
-            liveIncidents = liveIncidents.filter(inc => !deleteIds.includes(inc._id.toString()));
+            // --- 4. MERGE & SYNC ---
+            const deleteIds = pendingDeletes.map(a => String(a.payload.id || a.payload._id));
+            liveIncidents = liveIncidents.filter(inc => !deleteIds.includes(String(inc._id)));
 
-            // 5. APPLY PENDING UPDATES (Change status in UI)
             liveIncidents = liveIncidents.map(inc => {
-                const update = pendingUpdates.find(u => u.payload.id.toString() === inc._id.toString());
+                const update = pendingUpdates.find(u => String(u.payload.id || u.payload._id) === String(inc._id));
                 return update ? { ...inc, status: update.payload.status, isQueuedStatus: true } : inc;
             });
 
-            // 6. FORMAT PENDING CREATES
             const formattedLocal = pendingCreates.map(action => ({
                 ...action.payload,
                 _id: `local-${action.id}`,
@@ -190,50 +195,23 @@ const Dashboard = ({ user, setUser }) => {
                 isLocal: true
             }));
 
-            // 7. COMBINE AND SORT
-            const combined = [...formattedLocal, ...liveIncidents].sort((a, b) =>
+            const finalData = [...formattedLocal, ...liveIncidents].sort((a, b) =>
                 new Date(b.createdAt) - new Date(a.createdAt)
             );
 
-            setIncidents(combined);
+            // --- 5. COMMIT TO CACHE AND UI ---
+            setIncidents(finalData);
+            await saveCachedData('incidents', finalData);
 
-            // Fetch extra metrics if user is an administrator
             if (user.role === 'admin') {
                 const countRes = await getUserCount();
                 setUserCount(countRes.data.data.count);
-
                 const usersRes = await getAllUsers();
                 setUsers(usersRes.data.data.users);
             }
         } catch (err) {
-            console.error('SERVER FETCH ERROR:', err);
-
-            // Fallback: Populate UI from local IndexedDB if server is reachable but failing
-            try {
-                const { getPendingActions } = await import('../services/db');
-                const pendingActions = await getPendingActions();
-                const pendingCreates = pendingActions.filter(a => a.type === 'CREATE');
-
-                setIncidents(prev => {
-                    const localOnly = pendingCreates.map(action => ({
-                        ...action.payload,
-                        _id: `local-${action.id}`,
-                        status: action.payload.status || 'Pending',
-                        isLocal: true
-                    }));
-                    // Merge with what we already have to prevent 'disappearing' reports
-                    return [...localOnly, ...prev.filter(p => !p.isLocal)];
-                });
-            } catch (dbErr) {
-                console.error("Local recovery failed", dbErr);
-            }
-
-            const status = err.response?.status;
-            if (status === 403 || status === 401) {
-                triggerError('SESSION EXPIRED: Please Logout and Login again to restore Admin access.');
-            } else {
-                triggerError('OFFLINE MODE: Using local synchronization queue.');
-            }
+            console.log('📡 BACKGROUND REFRESH: Network unavailable, using cache.');
+            // We never trigger an error toast here anymore to keep it seamless.
         }
     };
 

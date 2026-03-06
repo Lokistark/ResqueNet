@@ -32,9 +32,11 @@ function App() {
 
   useEffect(() => {
     const checkSession = async () => {
-      // INSTANT OFFLINE STARTUP: If we have a cached user and we are offline, 
-      // show the UI immediately instead of waiting for a network timeout.
-      if (!navigator.onLine && user) {
+      // 1. SILENT STARTUP: If we have a cached user, we are already "In" 
+      // regardless of the internet.
+      if (user) setLoading(false);
+
+      if (!navigator.onLine) {
         setLoading(false);
         return;
       }
@@ -45,10 +47,17 @@ function App() {
         setUser(freshUser);
         localStorage.setItem('resquenet_user', JSON.stringify(freshUser));
       } catch (err) {
-        console.log('API Session Check Failed:', navigator.onLine ? 'No active session.' : 'Offline.');
-        if (navigator.onLine && err.response && err.response.status === 401) {
+        const isAuthError = err.response && (err.response.status === 401 || err.response.status === 403);
+        const isNetworkError = !err.response || err.response.status >= 500;
+
+        if (isAuthError && navigator.onLine) {
+          // Only log out if the SERVER explicitly told us the session is dead
+          console.log('📡 AUTH: Session invalidated by server.');
           setUser(null);
           localStorage.removeItem('resquenet_user');
+          localStorage.removeItem('resquenet_incidents'); // Clear history on logout
+        } else if (isNetworkError) {
+          console.log('📡 NETWORK: Server unreachable, sticking with local session.');
         }
       } finally {
         setLoading(false);
