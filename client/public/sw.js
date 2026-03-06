@@ -1,30 +1,29 @@
-const CACHE_NAME = 'resquenet-v6';
+const CACHE_NAME = 'resquenet-v7';
 const URLS_TO_CACHE = [
     '/',
     '/index.html',
     '/manifest.json',
     '/sw.js',
+    '/vite.svg'
 ];
 
-// INSTALL: Cache critical assets
+// INSTALL: Pre-cache core shell
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log('SW: Pre-caching Core Assets');
             return cache.addAll(URLS_TO_CACHE);
         })
     );
     self.skipWaiting();
 });
 
-// ACTIVATE: Cleanup old caches
+// ACTIVATE: Cleanup old versions
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cache) => {
                     if (cache !== CACHE_NAME) {
-                        console.log('SW: Clearing Legacy Cache', cache);
                         return caches.delete(cache);
                     }
                 })
@@ -34,122 +33,118 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// FETCH: Network-First for API, Cache-First for UI with Navigation Fallback
+// FETCH: THE CORE OF OFFLINE POWER
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // 1. API requests: Try network first
+    // 1. API CALLS: Network-First
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
             fetch(request).catch(async () => {
-                const cachedResponse = await caches.match(request);
-                if (cachedResponse) return cachedResponse;
+                const cached = await caches.match(request);
+                if (cached) return cached;
 
                 return new Response(JSON.stringify({
                     status: 'error',
-                    message: 'Offline: Request Queued'
+                    message: 'Offline: Action Queued'
                 }), {
                     status: 503,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-ResqueNet-Offline': 'true'
-                    }
+                    headers: { 'Content-Type': 'application/json', 'X-ResqueNet-Offline': 'true' }
                 });
             })
         );
+        return;
     }
-    // 2. Navigation Fallback: Serve index.html for any route in offline mode
-    else if (request.mode === 'navigate') {
+
+    // 2. NAVIGATION (Pages): Always serve index.html if offline
+    if (request.mode === 'navigate') {
         event.respondWith(
             fetch(request).catch(() => caches.match('/index.html'))
         );
+        return;
     }
-    // 3. UI Assets: Stale-While-Revalidate
-    else {
-        event.respondWith(
-            caches.match(request).then((cachedResponse) => {
-                const fetchPromise = fetch(request).then((networkResponse) => {
-                    return caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(request, networkResponse.clone());
-                        return networkResponse;
-                    });
-                });
-                return cachedResponse || fetchPromise;
-            })
-        );
-    }
+
+    // 3. STATIC ASSETS (JS/CSS/IMGS): Cache-First (Fastest & Offline-Ready)
+    event.respondWith(
+        caches.match(request).then((cachedResponse) => {
+            if (cachedResponse) return cachedResponse;
+
+            return fetch(request).then((networkResponse) => {
+                // If it's a valid response, cache it for next time
+                if (networkResponse && networkResponse.status === 200) {
+                    const cacheCopy = networkResponse.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(request, cacheCopy));
+                }
+                return networkResponse;
+            }).catch(() => {
+                // Return nothing if both fail (browser handles this)
+                return null;
+            });
+        })
+    );
 });
 
-// SYNC: Background Data Synchronization
+// SYNC: Background Synchronization for offline reports
 self.addEventListener('sync', (event) => {
-    if (event.tag === 'sync-reports') { // Keeping the tag same for compatibility
-        console.log('SW: Sync Triggered - Dispatching Pending Actions');
+    if (event.tag === 'sync-reports') {
         event.waitUntil(syncActions());
     }
 });
 
 async function syncActions() {
-    return new Promise((resolve, reject) => {
-        const dbRequest = indexedDB.open('ResqueNetDB', 2); // Use version 2
+    const dbName = 'ResqueNetDB';
+    const storeName = 'pendingActions';
 
-        dbRequest.onerror = (err) => reject(err);
-
-        dbRequest.onsuccess = (event) => {
+    return new Promise((resolve) => {
+        const request = indexedDB.open(dbName, 2);
+        request.onsuccess = async (event) => {
             const db = event.target.result;
-            if (!db.objectStoreNames.contains('pendingActions')) return resolve();
+            if (!db.objectStoreNames.contains(storeName)) return resolve();
 
-            const transaction = db.transaction('pendingActions', 'readwrite');
-            const store = transaction.objectStore('pendingActions');
-            const getAllRequest = store.getAll();
+            const tx = db.transaction(storeName, 'readwrite');
+            const store = tx.objectStore(storeName);
+            const actions = await new Promise(r => {
+                const req = store.getAll();
+                req.onsuccess = () => r(req.result);
+            });
 
-            getAllRequest.onsuccess = async () => {
-                const actions = getAllRequest.result;
-                if (actions.length === 0) return resolve();
+            if (!actions || actions.length === 0) return resolve();
 
-                console.log(`SW: Found ${actions.length} pending actions. Syncing...`);
+            for (const action of actions) {
+                try {
+                    let res;
+                    const { type, payload } = action;
 
-                const backendUrl = '';
-
-                for (const action of actions) {
-                    try {
-                        let response;
-                        const { type, payload } = action;
-
-                        if (type === 'CREATE') {
-                            const endpoint = payload.isPublic ? '/api/incidents/public-sos' : '/api/incidents';
-                            response = await fetch(`${backendUrl}${endpoint}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload),
-                                credentials: 'include'
-                            });
-                        } else if (type === 'DELETE') {
-                            response = await fetch(`${backendUrl}/api/incidents/${payload.id}`, {
-                                method: 'DELETE',
-                                credentials: 'include'
-                            });
-                        } else if (type === 'UPDATE') {
-                            response = await fetch(`${backendUrl}/api/incidents/${payload.id}/status`, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: payload.status }),
-                                credentials: 'include'
-                            });
-                        }
-
-                        if (response && (response.ok || response.status === 404)) {
-                            // 404 is treated as success for sync (item already gone)
-                            console.log(`SW: Action ${action.id} (${type}) synced.`);
-                            const delTx = db.transaction('pendingActions', 'readwrite');
-                            delTx.objectStore('pendingActions').delete(action.id);
-                        }
-                    } catch (err) {
-                        console.error(`SW: Sync failed for action ${action.id}`, err);
+                    if (type === 'CREATE') {
+                        const path = payload.isPublic ? '/api/incidents/public-sos' : '/api/incidents';
+                        res = await fetch(path, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                            credentials: 'include'
+                        });
+                    } else if (type === 'DELETE') {
+                        res = await fetch(`/api/incidents/${payload.id}`, { method: 'DELETE', credentials: 'include' });
+                    } else if (type === 'UPDATE') {
+                        res = await fetch(`/api/incidents/${payload.id}/status`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: payload.status }),
+                            credentials: 'include'
+                        });
                     }
+
+                    if (res && (res.ok || res.status === 404)) {
+                        const delTx = db.transaction(storeName, 'readwrite');
+                        delTx.objectStore(storeName).delete(action.id);
+                    }
+                } catch (err) {
+                    console.error('SW Sync err:', err);
                 }
-                resolve();
-            };
+            }
+            resolve();
         };
+        request.onerror = () => resolve();
     });
 }

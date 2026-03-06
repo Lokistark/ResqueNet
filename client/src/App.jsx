@@ -17,6 +17,13 @@ function App() {
 
   useEffect(() => {
     const checkSession = async () => {
+      // INSTANT OFFLINE STARTUP: If we have a cached user and we are offline, 
+      // show the UI immediately instead of waiting for a network timeout.
+      if (!navigator.onLine && user) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const res = await getMe();
         const freshUser = res.data.data.user;
@@ -24,8 +31,6 @@ function App() {
         localStorage.setItem('resquenet_user', JSON.stringify(freshUser));
       } catch (err) {
         console.log('API Session Check Failed:', navigator.onLine ? 'No active session.' : 'Offline.');
-        // If offline and we have a cached user, we keep it. 
-        // If online but session invalid, we clear it.
         if (navigator.onLine && err.response && err.response.status === 401) {
           setUser(null);
           localStorage.removeItem('resquenet_user');
