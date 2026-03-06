@@ -10,6 +10,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
 const helmet = require('helmet'); // Protects against well-known web vulnerabilities by setting HTTP headers
 const rateLimit = require('express-rate-limit'); // Mitigates Brute-force and DDoS attacks
 const cookieParser = require('cookie-parser'); // Parses cookies for secure JWT handling
@@ -116,7 +117,7 @@ app.use('/api/incidents', incidentRoutes);
 // Health Check for Vercel
 let dbError = null;
 
-app.get('/', (req, res) => {
+app.get(['/', '/api'], (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
   res.json({
     status: 'Operational',
@@ -195,6 +196,23 @@ app.get('/seed-admin', async (req, res) => {
 });
 
 /**
+ * SERVE FRONTEND (Production Mode)
+ * Dedicated servers like Render/Railway serve both API and Frontend from one process.
+ */
+if (process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.RAILWAY) {
+  const distPath = path.join(__dirname, '../client/dist');
+  app.use(express.static(distPath));
+
+  // SPA Fallback: Any route that doesn't match an API route serves index.html
+  app.get('*', (req, res) => {
+    // Only serve index.html if it's not an API request
+    if (!req.url.startsWith('/api')) {
+      res.sendFile(path.join(distPath, 'index.html'));
+    }
+  });
+}
+
+/**
  * GLOBAL ERROR HANDLER
  */
 app.use((err, req, res, next) => {
@@ -207,17 +225,13 @@ app.use((err, req, res, next) => {
 
 /**
  * SERVER LIFECYCLE
- * app.listen is bypassed during Vercel serverless execution
  */
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  const PORT = process.env.PORT || 5000;
-  server.listen(PORT, () => {
-    console.log(`🚀 ResqueNet API Node is live on port ${PORT}`);
-    console.log(`🔒 Security Layers: Helmet, RateLimit, Sanitize, JWT-Cookies ACTIVE`);
-    console.log(`📡 WebSocket Engine: Socket.io INITIALIZED`);
-  });
-}
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`🚀 ResqueNet API Node is live on port ${PORT}`);
+  console.log(`🔒 Mode: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔒 Security Layers: Helmet, RateLimit, Sanitize, JWT-Cookies ACTIVE`);
+  console.log(`📡 WebSocket Engine: Socket.io INITIALIZED`);
+});
 
-
-
-module.exports = app; // Export for Vercel
+module.exports = app;
